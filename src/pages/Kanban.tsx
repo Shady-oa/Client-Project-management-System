@@ -219,7 +219,7 @@ const Kanban = () => {
                   
                   {/* Add Task Button */}
                   <Button 
-                    variant="dashed" 
+                    variant="outline" 
                     className="w-full border-2 border-dashed border-gray-300 text-gray-500 hover:border-gray-400 hover:text-gray-600"
                   >
                     <Plus className="w-4 h-4 mr-2" />
