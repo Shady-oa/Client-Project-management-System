@@ -3,10 +3,11 @@ import { useState } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Calendar, Users, Archive, Briefcase, Plus } from "lucide-react";
-import { Link } from "react-router-dom";
+import { Calendar, Users, Archive, Briefcase, Plus, Settings, User } from "lucide-react";
+import { Link, useNavigate } from "react-router-dom";
 
 const Dashboard = () => {
+  const navigate = useNavigate();
   const [selectedCompany] = useState("Acme Corp");
 
   const projects = [
@@ -49,6 +50,22 @@ const Dashboard = () => {
     { title: "Upcoming Deadlines", value: "7", icon: Calendar, change: "Next 30 days" }
   ];
 
+  const handleNewProject = () => {
+    navigate("/projects");
+  };
+
+  const handleProjectClick = (projectId: number) => {
+    navigate(`/projects/${projectId}`);
+  };
+
+  const handleUserProfileClick = () => {
+    navigate("/profile");
+  };
+
+  const handleSettingsClick = () => {
+    navigate("/settings");
+  };
+
   return (
     <div className="min-h-screen bg-gray-50">
       <div className="max-w-7xl mx-auto p-6">
@@ -59,19 +76,35 @@ const Dashboard = () => {
               <h1 className="text-3xl font-bold text-gray-900">Dashboard</h1>
               <p className="text-gray-600 mt-1">Welcome back to {selectedCompany}</p>
             </div>
-            <Link to="/projects/new">
-              <Button className="bg-blue-600 hover:bg-blue-700">
+            <div className="flex items-center gap-3">
+              <Button 
+                variant="outline" 
+                size="sm"
+                onClick={handleUserProfileClick}
+              >
+                <User className="w-4 h-4 mr-2" />
+                Profile
+              </Button>
+              <Button 
+                variant="outline" 
+                size="sm"
+                onClick={handleSettingsClick}
+              >
+                <Settings className="w-4 h-4 mr-2" />
+                Settings
+              </Button>
+              <Button className="bg-blue-600 hover:bg-blue-700" onClick={handleNewProject}>
                 <Plus className="w-4 h-4 mr-2" />
                 New Project
               </Button>
-            </Link>
+            </div>
           </div>
         </div>
 
         {/* Stats Grid */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
           {stats.map((stat, index) => (
-            <Card key={index} className="border-gray-200 shadow-sm hover:shadow-md transition-shadow">
+            <Card key={index} className="border-gray-200 shadow-sm hover:shadow-md transition-shadow cursor-pointer">
               <CardContent className="p-6">
                 <div className="flex items-center justify-between">
                   <div>
@@ -106,11 +139,15 @@ const Dashboard = () => {
           <CardContent className="p-0">
             <div className="divide-y divide-gray-200">
               {projects.map((project) => (
-                <div key={project.id} className="p-6 hover:bg-gray-50 transition-colors">
+                <div 
+                  key={project.id} 
+                  className="p-6 hover:bg-gray-50 transition-colors cursor-pointer"
+                  onClick={() => handleProjectClick(project.id)}
+                >
                   <div className="flex items-center justify-between">
                     <div className="flex-1">
                       <div className="flex items-center gap-3 mb-2">
-                        <h3 className="font-semibold text-gray-900">{project.name}</h3>
+                        <h3 className="font-semibold text-gray-900 hover:text-blue-600">{project.name}</h3>
                         <Badge 
                           variant={project.priority === "High" ? "destructive" : "secondary"}
                           className="text-xs"

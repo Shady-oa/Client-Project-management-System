@@ -8,13 +8,23 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Search, Plus, Users, User, Shield, Mail, Calendar, MoreHorizontal } from "lucide-react";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { Label } from "@/components/ui/label";
 
 const UsersPage = () => {
   const [searchTerm, setSearchTerm] = useState("");
   const [roleFilter, setRoleFilter] = useState("all");
   const [statusFilter, setStatusFilter] = useState("all");
+  const [isInviteOpen, setIsInviteOpen] = useState(false);
+  const [newUser, setNewUser] = useState({
+    firstName: "",
+    lastName: "",
+    email: "",
+    role: "Developer",
+    department: ""
+  });
 
-  const users = [
+  const [users, setUsers] = useState([
     {
       id: "1",
       name: "Sarah Chen",
@@ -93,7 +103,7 @@ const UsersPage = () => {
       avatar: "/avatars/lisa.jpg",
       initials: "LB"
     }
-  ];
+  ]);
 
   const getRoleIcon = (role: string) => {
     switch (role) {
@@ -126,11 +136,85 @@ const UsersPage = () => {
     }
   };
 
-  const stats = [
-    { title: "Total Users", value: "48", icon: Users, change: "+5 this month" },
-    { title: "Active Users", value: "42", icon: User, change: "+2 this week" },
-    { title: "Admin Users", value: "6", icon: Shield, change: "No change" },
-    { title: "Client Users", value: "12", icon: Mail, change: "+3 this month" }
+  const filteredUsers = users.filter(user => {
+    const matchesSearch = user.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                         user.email.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                         user.department.toLowerCase().includes(searchTerm.toLowerCase());
+    
+    const matchesRole = roleFilter === "all" || 
+                       user.role.toLowerCase().replace(" ", "-") === roleFilter;
+    
+    const matchesStatus = statusFilter === "all" || 
+                         user.status.toLowerCase() === statusFilter;
+    
+    return matchesSearch && matchesRole && matchesStatus;
+  });
+
+  const getStats = () => {
+    const totalUsers = users.length;
+    const activeUsers = users.filter(user => user.status === "Active").length;
+    const adminUsers = users.filter(user => user.role === "Admin").length;
+    const clientUsers = users.filter(user => user.role === "Client").length;
+    
+    return { totalUsers, activeUsers, adminUsers, clientUsers };
+  };
+
+  const stats = getStats();
+
+  const handleInviteUser = () => {
+    if (newUser.firstName && newUser.lastName && newUser.email) {
+      const user = {
+        id: String(users.length + 1),
+        name: `${newUser.firstName} ${newUser.lastName}`,
+        email: newUser.email,
+        role: newUser.role,
+        status: "Pending",
+        department: newUser.department || "Engineering",
+        joinDate: new Date().toISOString().split('T')[0],
+        lastLogin: "Never",
+        projects: 0,
+        avatar: "",
+        initials: `${newUser.firstName[0]}${newUser.lastName[0]}`
+      };
+      
+      setUsers([...users, user]);
+      setNewUser({
+        firstName: "",
+        lastName: "",
+        email: "",
+        role: "Developer",
+        department: ""
+      });
+      setIsInviteOpen(false);
+    }
+  };
+
+  const handleUserAction = (userId: string, action: string) => {
+    switch (action) {
+      case "edit":
+        alert(`Edit user ${userId}`);
+        break;
+      case "changeRole":
+        alert(`Change role for user ${userId}`);
+        break;
+      case "viewProjects":
+        alert(`View projects for user ${userId}`);
+        break;
+      case "toggleStatus":
+        setUsers(users.map(user => 
+          user.id === userId 
+            ? { ...user, status: user.status === "Active" ? "Inactive" : "Active" }
+            : user
+        ));
+        break;
+    }
+  };
+
+  const statsData = [
+    { title: "Total Users", value: stats.totalUsers.toString(), icon: Users, change: "+5 this month" },
+    { title: "Active Users", value: stats.activeUsers.toString(), icon: User, change: "+2 this week" },
+    { title: "Admin Users", value: stats.adminUsers.toString(), icon: Shield, change: "No change" },
+    { title: "Client Users", value: stats.clientUsers.toString(), icon: Mail, change: "+3 this month" }
   ];
 
   return (
@@ -143,15 +227,89 @@ const UsersPage = () => {
               <h1 className="text-3xl font-bold text-gray-900">User Management</h1>
               <p className="text-gray-600 mt-1">Manage team members and client access</p>
             </div>
-            <Button className="bg-blue-600 hover:bg-blue-700">
-              <Plus className="w-4 h-4 mr-2" />
-              Invite User
-            </Button>
+            <Dialog open={isInviteOpen} onOpenChange={setIsInviteOpen}>
+              <DialogTrigger asChild>
+                <Button className="bg-blue-600 hover:bg-blue-700">
+                  <Plus className="w-4 h-4 mr-2" />
+                  Invite User
+                </Button>
+              </DialogTrigger>
+              <DialogContent className="sm:max-w-[425px]">
+                <DialogHeader>
+                  <DialogTitle>Invite New User</DialogTitle>
+                  <DialogDescription>
+                    Send an invitation to a new team member or client
+                  </DialogDescription>
+                </DialogHeader>
+                <div className="grid gap-4 py-4">
+                  <div className="grid grid-cols-2 gap-3">
+                    <div className="grid gap-2">
+                      <Label htmlFor="firstName">First Name</Label>
+                      <Input
+                        id="firstName"
+                        value={newUser.firstName}
+                        onChange={(e) => setNewUser({...newUser, firstName: e.target.value})}
+                        placeholder="John"
+                      />
+                    </div>
+                    <div className="grid gap-2">
+                      <Label htmlFor="lastName">Last Name</Label>
+                      <Input
+                        id="lastName"
+                        value={newUser.lastName}
+                        onChange={(e) => setNewUser({...newUser, lastName: e.target.value})}
+                        placeholder="Doe"
+                      />
+                    </div>
+                  </div>
+                  <div className="grid gap-2">
+                    <Label htmlFor="email">Email</Label>
+                    <Input
+                      id="email"
+                      type="email"
+                      value={newUser.email}
+                      onChange={(e) => setNewUser({...newUser, email: e.target.value})}
+                      placeholder="john.doe@company.com"
+                    />
+                  </div>
+                  <div className="grid gap-2">
+                    <Label htmlFor="role">Role</Label>
+                    <Select value={newUser.role} onValueChange={(value) => setNewUser({...newUser, role: value})}>
+                      <SelectTrigger>
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="Admin">Admin</SelectItem>
+                        <SelectItem value="Project Manager">Project Manager</SelectItem>
+                        <SelectItem value="Developer">Developer</SelectItem>
+                        <SelectItem value="Designer">Designer</SelectItem>
+                        <SelectItem value="Client">Client</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div className="grid gap-2">
+                    <Label htmlFor="department">Department</Label>
+                    <Input
+                      id="department"
+                      value={newUser.department}
+                      onChange={(e) => setNewUser({...newUser, department: e.target.value})}
+                      placeholder="Engineering"
+                    />
+                  </div>
+                </div>
+                <div className="flex justify-end gap-3">
+                  <Button variant="outline" onClick={() => setIsInviteOpen(false)}>
+                    Cancel
+                  </Button>
+                  <Button onClick={handleInviteUser}>Send Invitation</Button>
+                </div>
+              </DialogContent>
+            </Dialog>
           </div>
 
           {/* Stats Grid */}
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
-            {stats.map((stat, index) => (
+            {statsData.map((stat, index) => (
               <Card key={index} className="border-gray-200 shadow-sm">
                 <CardContent className="p-6">
                   <div className="flex items-center justify-between">
@@ -215,7 +373,7 @@ const UsersPage = () => {
           </CardHeader>
           <CardContent className="p-0">
             <div className="divide-y divide-gray-200">
-              {users.map((user) => (
+              {filteredUsers.map((user) => (
                 <div key={user.id} className="p-6 hover:bg-gray-50 transition-colors">
                   <div className="flex items-center justify-between">
                     <div className="flex items-center gap-4 flex-1">
@@ -268,10 +426,19 @@ const UsersPage = () => {
                           </Button>
                         </DropdownMenuTrigger>
                         <DropdownMenuContent align="end">
-                          <DropdownMenuItem>Edit User</DropdownMenuItem>
-                          <DropdownMenuItem>Change Role</DropdownMenuItem>
-                          <DropdownMenuItem>View Projects</DropdownMenuItem>
-                          <DropdownMenuItem className="text-red-600">
+                          <DropdownMenuItem onClick={() => handleUserAction(user.id, "edit")}>
+                            Edit User
+                          </DropdownMenuItem>
+                          <DropdownMenuItem onClick={() => handleUserAction(user.id, "changeRole")}>
+                            Change Role
+                          </DropdownMenuItem>
+                          <DropdownMenuItem onClick={() => handleUserAction(user.id, "viewProjects")}>
+                            View Projects
+                          </DropdownMenuItem>
+                          <DropdownMenuItem 
+                            className="text-red-600"
+                            onClick={() => handleUserAction(user.id, "toggleStatus")}
+                          >
                             {user.status === "Active" ? "Deactivate" : "Activate"}
                           </DropdownMenuItem>
                         </DropdownMenuContent>

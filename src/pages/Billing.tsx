@@ -6,15 +6,18 @@ import { Badge } from "@/components/ui/badge";
 import { Switch } from "@/components/ui/switch";
 import { Progress } from "@/components/ui/progress";
 import { Check, CreditCard, Download, Calendar, Users, Zap } from "lucide-react";
+import { formatKES, convertUSDToKES } from "@/utils/currency";
+import { useNavigate } from "react-router-dom";
 
 const Billing = () => {
+  const navigate = useNavigate();
   const [billingCycle, setBillingCycle] = useState("monthly");
   const [currentPlan] = useState("Pro");
 
   const plans = [
     {
       name: "Starter",
-      price: billingCycle === "monthly" ? 29 : 290,
+      originalPrice: 29,
       description: "Perfect for small teams getting started",
       features: [
         "Up to 5 team members",
@@ -27,7 +30,7 @@ const Billing = () => {
     },
     {
       name: "Pro",
-      price: billingCycle === "monthly" ? 79 : 790,
+      originalPrice: 79,
       description: "Best for growing teams and businesses",
       features: [
         "Up to 25 team members",
@@ -42,7 +45,7 @@ const Billing = () => {
     },
     {
       name: "Enterprise",
-      price: billingCycle === "monthly" ? 199 : 1990,
+      originalPrice: 199,
       description: "For large organizations with advanced needs",
       features: [
         "Unlimited team members",
@@ -64,29 +67,68 @@ const Billing = () => {
     storage: { current: 23, limit: 50 }
   };
 
-  const invoices = [
+  const [invoices, setInvoices] = useState([
     {
       id: "INV-2024-001",
       date: "2024-05-01",
-      amount: 79,
+      amount: convertUSDToKES(79),
       status: "Paid",
       downloadUrl: "#"
     },
     {
       id: "INV-2024-002",
       date: "2024-04-01",
-      amount: 79,
+      amount: convertUSDToKES(79),
       status: "Paid",
       downloadUrl: "#"
     },
     {
       id: "INV-2024-003",
       date: "2024-03-01",
-      amount: 79,
+      amount: convertUSDToKES(79),
       status: "Paid",
       downloadUrl: "#"
     }
-  ];
+  ]);
+
+  const handleUpdatePaymentMethod = () => {
+    alert("Payment method update form would open here");
+  };
+
+  const handleCancelSubscription = () => {
+    if (confirm("Are you sure you want to cancel your subscription?")) {
+      alert("Subscription cancellation process initiated");
+    }
+  };
+
+  const handleUpgrade = (planName: string) => {
+    if (planName === currentPlan) return;
+    
+    // Store selected plan and redirect to checkout
+    localStorage.setItem("selectedPlan", planName);
+    alert(`Upgrading to ${planName} plan. Redirecting to checkout...`);
+    // In a real app, this would redirect to a payment processor
+    navigate("/register");
+  };
+
+  const handleDownloadInvoice = (invoiceId: string) => {
+    // In a real app, this would download the PDF invoice
+    alert(`Downloading invoice ${invoiceId}...`);
+    
+    // Simulate file download
+    const element = document.createElement('a');
+    element.setAttribute('href', 'data:text/plain;charset=utf-8,' + encodeURIComponent(`Invoice ${invoiceId} - ProjectHub`));
+    element.setAttribute('download', `${invoiceId}.pdf`);
+    element.style.display = 'none';
+    document.body.appendChild(element);
+    element.click();
+    document.body.removeChild(element);
+  };
+
+  const getCurrentPlanPrice = () => {
+    const plan = plans.find(p => p.name === currentPlan);
+    return plan ? (billingCycle === "monthly" ? plan.originalPrice : plan.originalPrice * 10) : 0;
+  };
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -110,7 +152,7 @@ const Billing = () => {
                 <div>
                   <h3 className="text-2xl font-bold text-gray-900">{currentPlan}</h3>
                   <p className="text-gray-600">
-                    ${billingCycle === "monthly" ? "79" : "790"} / {billingCycle === "monthly" ? "month" : "year"}
+                    {formatKES(convertUSDToKES(getCurrentPlanPrice()))} / {billingCycle === "monthly" ? "month" : "year"}
                   </p>
                 </div>
                 <Badge className="bg-green-100 text-green-800">Active</Badge>
@@ -126,10 +168,10 @@ const Billing = () => {
                 </div>
               </div>
               <div className="flex gap-3 mt-6">
-                <Button variant="outline" className="border-gray-300">
+                <Button variant="outline" className="border-gray-300" onClick={handleUpdatePaymentMethod}>
                   Update Payment Method
                 </Button>
-                <Button variant="outline" className="border-gray-300">
+                <Button variant="outline" className="border-gray-300" onClick={handleCancelSubscription}>
                   Cancel Subscription
                 </Button>
               </div>
@@ -212,57 +254,63 @@ const Billing = () => {
           </CardHeader>
           <CardContent className="p-6">
             <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-              {plans.map((plan) => (
-                <div key={plan.name} className={`relative rounded-lg border p-6 ${
-                  plan.name === currentPlan 
-                    ? "border-blue-500 bg-blue-50" 
-                    : "border-gray-200 bg-white"
-                }`}>
-                  {plan.popular && (
-                    <div className="absolute -top-3 left-1/2 transform -translate-x-1/2">
-                      <Badge className="bg-blue-600 text-white">Most Popular</Badge>
+              {plans.map((plan) => {
+                const price = billingCycle === "monthly" ? plan.originalPrice : plan.originalPrice * 10;
+                const kesPrice = convertUSDToKES(price);
+                
+                return (
+                  <div key={plan.name} className={`relative rounded-lg border p-6 ${
+                    plan.name === currentPlan 
+                      ? "border-blue-500 bg-blue-50" 
+                      : "border-gray-200 bg-white"
+                  }`}>
+                    {plan.popular && (
+                      <div className="absolute -top-3 left-1/2 transform -translate-x-1/2">
+                        <Badge className="bg-blue-600 text-white">Most Popular</Badge>
+                      </div>
+                    )}
+                    {plan.name === currentPlan && (
+                      <div className="absolute -top-3 right-4">
+                        <Badge className="bg-green-600 text-white">Current Plan</Badge>
+                      </div>
+                    )}
+                    
+                    <div className="text-center mb-6">
+                      <h3 className="text-xl font-bold text-gray-900">{plan.name}</h3>
+                      <div className="mt-2">
+                        <span className="text-3xl font-bold text-gray-900">
+                          {formatKES(kesPrice)}
+                        </span>
+                        <span className="text-gray-600">
+                          /{billingCycle === "monthly" ? "mo" : "yr"}
+                        </span>
+                      </div>
+                      <p className="text-sm text-gray-600 mt-2">{plan.description}</p>
                     </div>
-                  )}
-                  {plan.name === currentPlan && (
-                    <div className="absolute -top-3 right-4">
-                      <Badge className="bg-green-600 text-white">Current Plan</Badge>
-                    </div>
-                  )}
-                  
-                  <div className="text-center mb-6">
-                    <h3 className="text-xl font-bold text-gray-900">{plan.name}</h3>
-                    <div className="mt-2">
-                      <span className="text-3xl font-bold text-gray-900">
-                        ${plan.price}
-                      </span>
-                      <span className="text-gray-600">
-                        /{billingCycle === "monthly" ? "mo" : "yr"}
-                      </span>
-                    </div>
-                    <p className="text-sm text-gray-600 mt-2">{plan.description}</p>
+
+                    <ul className="space-y-3 mb-6">
+                      {plan.features.map((feature, index) => (
+                        <li key={index} className="flex items-center gap-2 text-sm">
+                          <Check className="w-4 h-4 text-green-600 flex-shrink-0" />
+                          <span className="text-gray-700">{feature}</span>
+                        </li>
+                      ))}
+                    </ul>
+
+                    <Button 
+                      className={`w-full ${
+                        plan.name === currentPlan 
+                          ? "bg-gray-400 cursor-not-allowed" 
+                          : "bg-blue-600 hover:bg-blue-700"
+                      }`}
+                      disabled={plan.name === currentPlan}
+                      onClick={() => handleUpgrade(plan.name)}
+                    >
+                      {plan.name === currentPlan ? "Current Plan" : "Upgrade"}
+                    </Button>
                   </div>
-
-                  <ul className="space-y-3 mb-6">
-                    {plan.features.map((feature, index) => (
-                      <li key={index} className="flex items-center gap-2 text-sm">
-                        <Check className="w-4 h-4 text-green-600 flex-shrink-0" />
-                        <span className="text-gray-700">{feature}</span>
-                      </li>
-                    ))}
-                  </ul>
-
-                  <Button 
-                    className={`w-full ${
-                      plan.name === currentPlan 
-                        ? "bg-gray-400 cursor-not-allowed" 
-                        : "bg-blue-600 hover:bg-blue-700"
-                    }`}
-                    disabled={plan.name === currentPlan}
-                  >
-                    {plan.name === currentPlan ? "Current Plan" : "Upgrade"}
-                  </Button>
-                </div>
-              ))}
+                );
+              })}
             </div>
           </CardContent>
         </Card>
@@ -283,7 +331,7 @@ const Billing = () => {
                   </div>
                   <div className="flex items-center gap-4">
                     <div className="text-right">
-                      <div className="font-semibold text-gray-900">${invoice.amount}</div>
+                      <div className="font-semibold text-gray-900">{formatKES(invoice.amount)}</div>
                       <Badge className={
                         invoice.status === "Paid" 
                           ? "bg-green-100 text-green-800" 
@@ -292,7 +340,12 @@ const Billing = () => {
                         {invoice.status}
                       </Badge>
                     </div>
-                    <Button variant="outline" size="sm" className="border-gray-300">
+                    <Button 
+                      variant="outline" 
+                      size="sm" 
+                      className="border-gray-300"
+                      onClick={() => handleDownloadInvoice(invoice.id)}
+                    >
                       <Download className="w-4 h-4 mr-2" />
                       Download
                     </Button>

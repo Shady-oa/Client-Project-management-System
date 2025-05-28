@@ -7,13 +7,28 @@ import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Calendar, Search, Plus, Archive, Bug, AlertCircle, CheckCircle, Github } from "lucide-react";
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
+import { useNavigate } from "react-router-dom";
 
 const Issues = () => {
+  const navigate = useNavigate();
   const [searchTerm, setSearchTerm] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
   const [priorityFilter, setPriorityFilter] = useState("all");
+  const [isNewIssueOpen, setIsNewIssueOpen] = useState(false);
+  const [newIssue, setNewIssue] = useState({
+    title: "",
+    description: "",
+    type: "Bug",
+    priority: "Medium",
+    assignee: "",
+    project: "",
+    labels: ""
+  });
 
-  const issues = [
+  const [issues, setIssues] = useState([
     {
       id: "ISS-001",
       title: "Login form validation not working properly",
@@ -89,7 +104,17 @@ const Issues = () => {
       githubIssue: "#120",
       labels: ["api", "security", "performance"]
     }
+  ]);
+
+  const teamMembers = [
+    { name: "Sarah Chen", initials: "SC" },
+    { name: "Mike Johnson", initials: "MJ" },
+    { name: "Emma Davis", initials: "ED" },
+    { name: "Alex Rodriguez", initials: "AR" },
+    { name: "Tom Wilson", initials: "TW" }
   ];
+
+  const projects = ["Website Redesign", "Mobile App Development", "Database Migration", "E-commerce Platform"];
 
   const getStatusIcon = (status: string) => {
     switch (status) {
@@ -119,6 +144,69 @@ const Issues = () => {
     }
   };
 
+  const filteredIssues = issues.filter(issue => {
+    const matchesSearch = issue.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                         issue.description.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                         issue.labels.some(label => label.toLowerCase().includes(searchTerm.toLowerCase()));
+    
+    const matchesStatus = statusFilter === "all" || 
+                         issue.status.toLowerCase().replace(" ", "-") === statusFilter;
+    
+    const matchesPriority = priorityFilter === "all" || 
+                           issue.priority.toLowerCase() === priorityFilter;
+    
+    return matchesSearch && matchesStatus && matchesPriority;
+  });
+
+  const handleCreateIssue = () => {
+    if (newIssue.title && newIssue.description) {
+      const issue = {
+        id: `ISS-${String(issues.length + 1).padStart(3, '0')}`,
+        title: newIssue.title,
+        description: newIssue.description,
+        type: newIssue.type,
+        status: "Open",
+        priority: newIssue.priority,
+        assignee: teamMembers.find(member => member.name === newIssue.assignee) || teamMembers[0],
+        reporter: { name: "Current User", initials: "CU" },
+        project: newIssue.project || projects[0],
+        created: new Date().toISOString().split('T')[0],
+        updated: new Date().toISOString().split('T')[0],
+        githubIssue: `#${Math.floor(Math.random() * 1000)}`,
+        labels: newIssue.labels.split(",").map(label => label.trim()).filter(label => label)
+      };
+      
+      setIssues([issue, ...issues]);
+      setNewIssue({
+        title: "",
+        description: "",
+        type: "Bug",
+        priority: "Medium",
+        assignee: "",
+        project: "",
+        labels: ""
+      });
+      setIsNewIssueOpen(false);
+    }
+  };
+
+  const handleIssueClick = (issueId: string) => {
+    navigate(`/issues/${issueId}`);
+  };
+
+  const handleStatusChange = (issueId: string, newStatus: string) => {
+    setIssues(issues.map(issue => 
+      issue.id === issueId 
+        ? { ...issue, status: newStatus, updated: new Date().toISOString().split('T')[0] }
+        : issue
+    ));
+  };
+
+  const handleSyncGitHub = () => {
+    // In a real app, this would sync with GitHub
+    alert("GitHub sync initiated. This would sync with your GitHub repository.");
+  };
+
   return (
     <div className="min-h-screen bg-gray-50">
       <div className="max-w-7xl mx-auto p-6">
@@ -130,14 +218,118 @@ const Issues = () => {
               <p className="text-gray-600 mt-1">Track and manage project issues</p>
             </div>
             <div className="flex gap-3">
-              <Button variant="outline" className="border-gray-300">
+              <Button variant="outline" className="border-gray-300" onClick={handleSyncGitHub}>
                 <Github className="w-4 h-4 mr-2" />
                 Sync with GitHub
               </Button>
-              <Button className="bg-blue-600 hover:bg-blue-700">
-                <Plus className="w-4 h-4 mr-2" />
-                New Issue
-              </Button>
+              <Dialog open={isNewIssueOpen} onOpenChange={setIsNewIssueOpen}>
+                <DialogTrigger asChild>
+                  <Button className="bg-blue-600 hover:bg-blue-700">
+                    <Plus className="w-4 h-4 mr-2" />
+                    New Issue
+                  </Button>
+                </DialogTrigger>
+                <DialogContent className="sm:max-w-[425px]">
+                  <DialogHeader>
+                    <DialogTitle>Create New Issue</DialogTitle>
+                    <DialogDescription>
+                      Report a bug, request a feature, or create an improvement
+                    </DialogDescription>
+                  </DialogHeader>
+                  <div className="grid gap-4 py-4">
+                    <div className="grid gap-2">
+                      <Label htmlFor="title">Title</Label>
+                      <Input
+                        id="title"
+                        value={newIssue.title}
+                        onChange={(e) => setNewIssue({...newIssue, title: e.target.value})}
+                        placeholder="Issue title"
+                      />
+                    </div>
+                    <div className="grid gap-2">
+                      <Label htmlFor="description">Description</Label>
+                      <Textarea
+                        id="description"
+                        value={newIssue.description}
+                        onChange={(e) => setNewIssue({...newIssue, description: e.target.value})}
+                        placeholder="Describe the issue in detail"
+                      />
+                    </div>
+                    <div className="grid gap-2">
+                      <Label htmlFor="type">Type</Label>
+                      <Select value={newIssue.type} onValueChange={(value) => setNewIssue({...newIssue, type: value})}>
+                        <SelectTrigger>
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="Bug">Bug</SelectItem>
+                          <SelectItem value="Feature">Feature</SelectItem>
+                          <SelectItem value="Improvement">Improvement</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    <div className="grid gap-2">
+                      <Label htmlFor="priority">Priority</Label>
+                      <Select value={newIssue.priority} onValueChange={(value) => setNewIssue({...newIssue, priority: value})}>
+                        <SelectTrigger>
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="Low">Low</SelectItem>
+                          <SelectItem value="Medium">Medium</SelectItem>
+                          <SelectItem value="High">High</SelectItem>
+                          <SelectItem value="Critical">Critical</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    <div className="grid gap-2">
+                      <Label htmlFor="assignee">Assignee</Label>
+                      <Select value={newIssue.assignee} onValueChange={(value) => setNewIssue({...newIssue, assignee: value})}>
+                        <SelectTrigger>
+                          <SelectValue placeholder="Select assignee" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {teamMembers.map((member) => (
+                            <SelectItem key={member.name} value={member.name}>
+                              {member.name}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    <div className="grid gap-2">
+                      <Label htmlFor="project">Project</Label>
+                      <Select value={newIssue.project} onValueChange={(value) => setNewIssue({...newIssue, project: value})}>
+                        <SelectTrigger>
+                          <SelectValue placeholder="Select project" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {projects.map((project) => (
+                            <SelectItem key={project} value={project}>
+                              {project}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    <div className="grid gap-2">
+                      <Label htmlFor="labels">Labels (comma separated)</Label>
+                      <Input
+                        id="labels"
+                        value={newIssue.labels}
+                        onChange={(e) => setNewIssue({...newIssue, labels: e.target.value})}
+                        placeholder="frontend, urgent, etc."
+                      />
+                    </div>
+                  </div>
+                  <div className="flex justify-end gap-3">
+                    <Button variant="outline" onClick={() => setIsNewIssueOpen(false)}>
+                      Cancel
+                    </Button>
+                    <Button onClick={handleCreateIssue}>Create Issue</Button>
+                  </div>
+                </DialogContent>
+              </Dialog>
             </div>
           </div>
 
@@ -182,8 +374,8 @@ const Issues = () => {
         <Card className="border-gray-200 shadow-sm">
           <CardContent className="p-0">
             <div className="divide-y divide-gray-200">
-              {issues.map((issue) => (
-                <div key={issue.id} className="p-6 hover:bg-gray-50 transition-colors cursor-pointer">
+              {filteredIssues.map((issue) => (
+                <div key={issue.id} className="p-6 hover:bg-gray-50 transition-colors cursor-pointer" onClick={() => handleIssueClick(issue.id)}>
                   <div className="flex items-start justify-between">
                     <div className="flex-1">
                       {/* Issue Header */}
@@ -193,7 +385,7 @@ const Issues = () => {
                           {getTypeIcon(issue.type)}
                         </div>
                         <span className="text-sm font-mono text-gray-500">{issue.id}</span>
-                        <h3 className="font-semibold text-gray-900">{issue.title}</h3>
+                        <h3 className="font-semibold text-gray-900 hover:text-blue-600">{issue.title}</h3>
                         <Badge className={`text-xs ${getPriorityColor(issue.priority)}`}>
                           {issue.priority}
                         </Badge>
@@ -233,14 +425,27 @@ const Issues = () => {
                       </div>
                     </div>
 
-                    {/* Issue Status */}
+                    {/* Issue Actions */}
                     <div className="text-right ml-6">
                       <Badge variant="outline" className="mb-2">
                         {issue.type}
                       </Badge>
-                      <div className="text-sm text-gray-500">
+                      <div className="text-sm text-gray-500 mb-2">
                         Updated {issue.updated}
                       </div>
+                      <Select 
+                        value={issue.status} 
+                        onValueChange={(value) => handleStatusChange(issue.id, value)}
+                      >
+                        <SelectTrigger className="w-32">
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="Open">Open</SelectItem>
+                          <SelectItem value="In Progress">In Progress</SelectItem>
+                          <SelectItem value="Resolved">Resolved</SelectItem>
+                        </SelectContent>
+                      </Select>
                     </div>
                   </div>
                 </div>

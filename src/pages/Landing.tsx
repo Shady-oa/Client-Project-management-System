@@ -1,96 +1,132 @@
 
-import { Link } from "react-router-dom";
+import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { 
-  ArrowRight, 
-  CheckCircle, 
-  Users, 
-  Briefcase, 
-  BarChart3, 
-  Shield, 
-  Zap, 
-  Globe,
-  Star,
-  Github
-} from "lucide-react";
+import { Input } from "@/components/ui/input";
+import { Briefcase, Users, BarChart3, Shield, Zap, Globe, CheckCircle, Star, ArrowRight } from "lucide-react";
+import { Link, useNavigate } from "react-router-dom";
+import { formatKES, convertUSDToKES } from "@/utils/currency";
 
 const Landing = () => {
+  const navigate = useNavigate();
+  const [email, setEmail] = useState("");
+
+  const handleStartFreeTrial = () => {
+    navigate("/register");
+  };
+
+  const handleWatchDemo = () => {
+    // In a real app, this would open a demo video
+    window.open("https://www.youtube.com/watch?v=dQw4w9WgXcQ", "_blank");
+  };
+
+  const handleGetStarted = (plan: string) => {
+    localStorage.setItem("selectedPlan", plan);
+    navigate("/register");
+  };
+
+  const handleSignIn = () => {
+    navigate("/login");
+  };
+
   const features = [
     {
-      icon: <Briefcase className="w-6 h-6" />,
+      icon: Briefcase,
       title: "Project Management",
-      description: "Organize and track projects with powerful tools and intuitive interfaces."
+      description: "Organize and track projects with powerful tools and intuitive workflows."
     },
     {
-      icon: <Users className="w-6 h-6" />,
+      icon: Users,
       title: "Team Collaboration",
-      description: "Work together seamlessly with real-time updates and communication tools."
+      description: "Work together seamlessly with real-time updates and communication."
     },
     {
-      icon: <BarChart3 className="w-6 h-6" />,
+      icon: BarChart3,
       title: "Analytics & Reporting",
       description: "Get insights into your team's performance with detailed analytics."
     },
     {
-      icon: <Github className="w-6 h-6" />,
-      title: "GitHub Integration",
-      description: "Connect your repositories and sync issues directly with GitHub."
-    },
-    {
-      icon: <Shield className="w-6 h-6" />,
+      icon: Shield,
       title: "Enterprise Security",
-      description: "Bank-grade security with SOC 2 compliance and data encryption."
+      description: "Bank-level security with advanced permissions and compliance."
     },
     {
-      icon: <Zap className="w-6 h-6" />,
-      title: "Fast Performance",
-      description: "Lightning-fast interface that scales with your growing team."
+      icon: Zap,
+      title: "Automation",
+      description: "Automate repetitive tasks and focus on what matters most."
+    },
+    {
+      icon: Globe,
+      title: "Global Access",
+      description: "Access your projects from anywhere with our cloud-based platform."
     }
   ];
 
   const testimonials = [
     {
-      name: "Sarah Chen",
-      role: "CTO at TechCorp",
-      content: "ProjectHub has transformed how our development teams collaborate. The GitHub integration is seamless.",
+      name: "Sarah Johnson",
+      role: "Project Manager at TechCorp",
+      content: "ProjectHub has transformed how we manage our projects. The Kanban boards are incredibly intuitive.",
       rating: 5
     },
     {
-      name: "Michael Rodriguez",
-      role: "Project Manager at InnovateCo",
-      content: "The best project management tool we've used. Clean interface and powerful features.",
+      name: "Michael Chen",
+      role: "CTO at StartupXYZ",
+      content: "The GitHub integration saves us hours every week. Highly recommended for development teams.",
       rating: 5
     },
     {
-      name: "Emily Davis",
-      role: "Team Lead at StartupXYZ",
-      content: "Finally, a project management system that our entire team actually wants to use.",
+      name: "Emily Rodriguez",
+      role: "Operations Director",
+      content: "Finally, a project management tool that our entire team actually enjoys using.",
       rating: 5
     }
   ];
 
-  const plans = [
+  const pricingPlans = [
     {
       name: "Starter",
-      price: 29,
-      description: "Perfect for small teams",
-      features: ["Up to 5 team members", "10 projects", "Basic reporting", "Email support"],
+      originalPrice: 29,
+      description: "Perfect for small teams getting started",
+      features: [
+        "Up to 5 team members",
+        "10 projects",
+        "Basic reporting",
+        "Email support",
+        "5GB storage"
+      ],
       popular: false
     },
     {
       name: "Pro",
-      price: 79,
-      description: "Best for growing teams",
-      features: ["Up to 25 team members", "Unlimited projects", "Advanced analytics", "Priority support", "GitHub integration"],
+      originalPrice: 79,
+      description: "Best for growing teams and businesses",
+      features: [
+        "Up to 25 team members",
+        "Unlimited projects",
+        "Advanced reporting & analytics",
+        "Priority support",
+        "50GB storage",
+        "GitHub integration",
+        "Custom workflows"
+      ],
       popular: true
     },
     {
       name: "Enterprise",
-      price: 199,
-      description: "For large organizations",
-      features: ["Unlimited team members", "Advanced security", "Custom integrations", "Dedicated support", "SSO authentication"],
+      originalPrice: 199,
+      description: "For large organizations with advanced needs",
+      features: [
+        "Unlimited team members",
+        "Unlimited projects",
+        "Advanced security & compliance",
+        "Dedicated support manager",
+        "500GB storage",
+        "API access",
+        "Custom integrations",
+        "SSO authentication"
+      ],
       popular: false
     }
   ];
@@ -99,30 +135,20 @@ const Landing = () => {
     <div className="min-h-screen bg-white">
       {/* Navigation */}
       <nav className="border-b border-gray-200 bg-white">
-        <div className="max-w-7xl mx-auto px-6 py-4">
-          <div className="flex justify-between items-center">
-            <div className="flex items-center gap-2">
+        <div className="max-w-7xl mx-auto px-6">
+          <div className="flex justify-between items-center h-16">
+            <Link to="/" className="flex items-center gap-2">
               <div className="w-8 h-8 bg-blue-600 rounded-lg flex items-center justify-center">
                 <Briefcase className="w-5 h-5 text-white" />
               </div>
               <span className="text-xl font-bold text-gray-900">ProjectHub</span>
-            </div>
+            </Link>
+            
             <div className="hidden md:flex items-center gap-8">
               <Link to="/about" className="text-gray-600 hover:text-gray-900">About</Link>
               <Link to="/contact" className="text-gray-600 hover:text-gray-900">Contact</Link>
-              <Link to="/billing-landing" className="text-gray-600 hover:text-gray-900">Pricing</Link>
-            </div>
-            <div className="flex items-center gap-4">
-              <Link to="/login">
-                <Button variant="outline" className="border-gray-300">
-                  Sign In
-                </Button>
-              </Link>
-              <Link to="/register">
-                <Button className="bg-blue-600 hover:bg-blue-700">
-                  Get Started
-                </Button>
-              </Link>
+              <Button variant="outline" onClick={handleSignIn}>Sign In</Button>
+              <Button onClick={handleStartFreeTrial}>Start Free Trial</Button>
             </div>
           </div>
         </div>
@@ -131,58 +157,50 @@ const Landing = () => {
       {/* Hero Section */}
       <section className="py-20 bg-gradient-to-b from-blue-50 to-white">
         <div className="max-w-7xl mx-auto px-6 text-center">
-          <Badge className="mb-6 bg-blue-100 text-blue-800">
-            New: GitHub Integration Now Available
-          </Badge>
           <h1 className="text-5xl font-bold text-gray-900 mb-6">
-            Project Management
-            <br />
-            <span className="text-blue-600">Made Simple</span>
+            Manage Projects Like a Pro
           </h1>
           <p className="text-xl text-gray-600 mb-8 max-w-3xl mx-auto">
-            Streamline your workflow with powerful project management tools designed for modern teams. 
-            Track issues, manage tasks, and collaborate seamlessly with GitHub integration.
+            The ultimate project management platform for teams who want to work smarter, 
+            not harder. With powerful integrations and intuitive design.
           </p>
-          <div className="flex justify-center gap-4">
-            <Link to="/register">
-              <Button size="lg" className="bg-blue-600 hover:bg-blue-700">
-                Start Free Trial
-                <ArrowRight className="w-4 h-4 ml-2" />
-              </Button>
-            </Link>
-            <Button size="lg" variant="outline" className="border-gray-300">
+          <div className="flex gap-4 justify-center">
+            <Button size="lg" onClick={handleStartFreeTrial}>
+              Start Free Trial
+              <ArrowRight className="w-4 h-4 ml-2" />
+            </Button>
+            <Button variant="outline" size="lg" onClick={handleWatchDemo}>
               Watch Demo
             </Button>
           </div>
-          <p className="text-sm text-gray-500 mt-4">
-            14-day free trial • No credit card required
-          </p>
         </div>
       </section>
 
       {/* Features Section */}
-      <section className="py-20 bg-white">
+      <section className="py-20">
         <div className="max-w-7xl mx-auto px-6">
           <div className="text-center mb-16">
             <h2 className="text-3xl font-bold text-gray-900 mb-4">
-              Everything you need to manage projects
+              Everything you need to succeed
             </h2>
-            <p className="text-lg text-gray-600 max-w-2xl mx-auto">
-              Powerful features designed to help teams of all sizes collaborate effectively and deliver projects on time.
+            <p className="text-gray-600 max-w-2xl mx-auto">
+              From project planning to team collaboration, we've got all the tools 
+              your team needs to deliver exceptional results.
             </p>
           </div>
+          
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
             {features.map((feature, index) => (
               <Card key={index} className="border-gray-200 hover:shadow-lg transition-shadow">
                 <CardHeader>
-                  <div className="w-12 h-12 bg-blue-100 rounded-lg flex items-center justify-center text-blue-600 mb-4">
-                    {feature.icon}
+                  <div className="w-12 h-12 bg-blue-100 rounded-lg flex items-center justify-center mb-4">
+                    <feature.icon className="w-6 h-6 text-blue-600" />
                   </div>
                   <CardTitle className="text-xl text-gray-900">{feature.title}</CardTitle>
-                  <CardDescription className="text-gray-600">
-                    {feature.description}
-                  </CardDescription>
                 </CardHeader>
+                <CardContent>
+                  <p className="text-gray-600">{feature.description}</p>
+                </CardContent>
               </Card>
             ))}
           </div>
@@ -194,25 +212,24 @@ const Landing = () => {
         <div className="max-w-7xl mx-auto px-6">
           <div className="text-center mb-16">
             <h2 className="text-3xl font-bold text-gray-900 mb-4">
-              Trusted by teams worldwide
+              Loved by teams worldwide
             </h2>
-            <p className="text-lg text-gray-600">
-              See what our customers are saying about ProjectHub
-            </p>
+            <p className="text-gray-600">See what our customers have to say about ProjectHub</p>
           </div>
+          
           <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
             {testimonials.map((testimonial, index) => (
-              <Card key={index} className="border-gray-200 bg-white">
+              <Card key={index} className="border-gray-200">
                 <CardContent className="p-6">
                   <div className="flex mb-4">
                     {[...Array(testimonial.rating)].map((_, i) => (
-                      <Star key={i} className="w-4 h-4 text-yellow-400 fill-current" />
+                      <Star key={i} className="w-5 h-5 text-yellow-400 fill-current" />
                     ))}
                   </div>
-                  <p className="text-gray-700 mb-4">"{testimonial.content}"</p>
+                  <p className="text-gray-600 mb-4">"{testimonial.content}"</p>
                   <div>
                     <div className="font-semibold text-gray-900">{testimonial.name}</div>
-                    <div className="text-sm text-gray-600">{testimonial.role}</div>
+                    <div className="text-sm text-gray-500">{testimonial.role}</div>
                   </div>
                 </CardContent>
               </Card>
@@ -222,46 +239,53 @@ const Landing = () => {
       </section>
 
       {/* Pricing Section */}
-      <section className="py-20 bg-white">
+      <section className="py-20">
         <div className="max-w-7xl mx-auto px-6">
           <div className="text-center mb-16">
             <h2 className="text-3xl font-bold text-gray-900 mb-4">
               Simple, transparent pricing
             </h2>
-            <p className="text-lg text-gray-600">
-              Choose the plan that's right for your team
-            </p>
+            <p className="text-gray-600">Choose the plan that fits your team size and needs</p>
           </div>
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-8 max-w-5xl mx-auto">
-            {plans.map((plan, index) => (
-              <Card key={index} className={`border-gray-200 relative ${
-                plan.popular ? "border-blue-500 scale-105" : ""
+          
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
+            {pricingPlans.map((plan) => (
+              <Card key={plan.name} className={`border-gray-200 relative ${
+                plan.popular ? "border-blue-500 shadow-lg" : ""
               }`}>
                 {plan.popular && (
                   <div className="absolute -top-3 left-1/2 transform -translate-x-1/2">
                     <Badge className="bg-blue-600 text-white">Most Popular</Badge>
                   </div>
                 )}
+                
                 <CardHeader className="text-center">
-                  <CardTitle className="text-xl text-gray-900">{plan.name}</CardTitle>
+                  <CardTitle className="text-2xl text-gray-900">{plan.name}</CardTitle>
                   <div className="mt-4">
-                    <span className="text-4xl font-bold text-gray-900">${plan.price}</span>
+                    <span className="text-4xl font-bold text-gray-900">
+                      {formatKES(convertUSDToKES(plan.originalPrice))}
+                    </span>
                     <span className="text-gray-600">/month</span>
                   </div>
-                  <CardDescription>{plan.description}</CardDescription>
+                  <CardDescription className="mt-2">{plan.description}</CardDescription>
                 </CardHeader>
                 <CardContent>
                   <ul className="space-y-3 mb-6">
-                    {plan.features.map((feature, featureIndex) => (
-                      <li key={featureIndex} className="flex items-center gap-2">
+                    {plan.features.map((feature, index) => (
+                      <li key={index} className="flex items-center gap-2">
                         <CheckCircle className="w-4 h-4 text-green-600" />
                         <span className="text-gray-700">{feature}</span>
                       </li>
                     ))}
                   </ul>
-                  <Button className={`w-full ${
-                    plan.popular ? "bg-blue-600 hover:bg-blue-700" : "bg-gray-900 hover:bg-gray-800"
-                  }`}>
+                  <Button 
+                    className={`w-full ${
+                      plan.popular 
+                        ? "bg-blue-600 hover:bg-blue-700" 
+                        : "bg-gray-900 hover:bg-gray-800"
+                    }`}
+                    onClick={() => handleGetStarted(plan.name)}
+                  >
                     Get Started
                   </Button>
                 </CardContent>
@@ -275,23 +299,30 @@ const Landing = () => {
       <section className="py-20 bg-blue-600">
         <div className="max-w-4xl mx-auto px-6 text-center">
           <h2 className="text-3xl font-bold text-white mb-4">
-            Ready to transform your project management?
+            Ready to transform your workflow?
           </h2>
-          <p className="text-lg text-blue-100 mb-8">
-            Join thousands of teams already using ProjectHub to deliver better projects faster.
+          <p className="text-blue-100 mb-8 text-lg">
+            Join thousands of teams who have improved their productivity with ProjectHub.
           </p>
-          <div className="flex justify-center gap-4">
-            <Link to="/register">
-              <Button size="lg" className="bg-white text-blue-600 hover:bg-gray-100">
-                Start Free Trial
-              </Button>
-            </Link>
-            <Link to="/contact">
-              <Button size="lg" variant="outline" className="border-white text-white hover:bg-blue-700">
-                Contact Sales
-              </Button>
-            </Link>
+          <div className="flex flex-col sm:flex-row gap-4 justify-center items-center">
+            <Input
+              type="email"
+              placeholder="Enter your work email"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              className="max-w-sm bg-white"
+            />
+            <Button 
+              size="lg" 
+              variant="secondary"
+              onClick={handleStartFreeTrial}
+            >
+              Start Free Trial
+            </Button>
           </div>
+          <p className="text-blue-100 text-sm mt-4">
+            No credit card required. 14-day free trial.
+          </p>
         </div>
       </section>
 
@@ -307,34 +338,36 @@ const Landing = () => {
                 <span className="text-xl font-bold">ProjectHub</span>
               </div>
               <p className="text-gray-400">
-                The modern project management platform for teams that want to get things done.
+                The modern project management platform for teams who want to work smarter.
               </p>
             </div>
+            
             <div>
-              <h3 className="font-semibold mb-4">Product</h3>
+              <h4 className="font-semibold mb-4">Product</h4>
               <ul className="space-y-2 text-gray-400">
                 <li><Link to="/about" className="hover:text-white">About</Link></li>
-                <li><Link to="/billing-landing" className="hover:text-white">Pricing</Link></li>
-                <li><a href="#" className="hover:text-white">Features</a></li>
-              </ul>
-            </div>
-            <div>
-              <h3 className="font-semibold mb-4">Support</h3>
-              <ul className="space-y-2 text-gray-400">
+                <li><button onClick={handleWatchDemo} className="hover:text-white">Demo</button></li>
                 <li><Link to="/contact" className="hover:text-white">Contact</Link></li>
-                <li><a href="#" className="hover:text-white">Help Center</a></li>
-                <li><a href="#" className="hover:text-white">Documentation</a></li>
               </ul>
             </div>
+            
             <div>
-              <h3 className="font-semibold mb-4">Company</h3>
+              <h4 className="font-semibold mb-4">Company</h4>
               <ul className="space-y-2 text-gray-400">
-                <li><a href="#" className="hover:text-white">Privacy</a></li>
-                <li><a href="#" className="hover:text-white">Terms</a></li>
-                <li><a href="#" className="hover:text-white">Security</a></li>
+                <li><Link to="/about" className="hover:text-white">About Us</Link></li>
+                <li><Link to="/contact" className="hover:text-white">Contact</Link></li>
+              </ul>
+            </div>
+            
+            <div>
+              <h4 className="font-semibold mb-4">Support</h4>
+              <ul className="space-y-2 text-gray-400">
+                <li><Link to="/contact" className="hover:text-white">Help Center</Link></li>
+                <li><Link to="/contact" className="hover:text-white">Contact Support</Link></li>
               </ul>
             </div>
           </div>
+          
           <div className="border-t border-gray-800 mt-8 pt-8 text-center text-gray-400">
             <p>&copy; 2024 ProjectHub. All rights reserved.</p>
           </div>
