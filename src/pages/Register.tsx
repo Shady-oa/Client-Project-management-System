@@ -1,17 +1,17 @@
-
 import { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Briefcase, Eye, EyeOff, CheckCircle } from "lucide-react";
-import { useUser } from "@/contexts/UserContext";
+import { useUser, UserRole } from "@/contexts/UserContext";
 import { useToast } from "@/hooks/use-toast";
 
 const Register = () => {
   const navigate = useNavigate();
-  const { login } = useUser();
+  const { register, loading } = useUser();
   const { toast } = useToast();
   const [showPassword, setShowPassword] = useState(false);
   const [formData, setFormData] = useState({
@@ -20,14 +20,13 @@ const Register = () => {
     email: "",
     company: "",
     password: "",
-    confirmPassword: ""
+    confirmPassword: "",
+    role: "company" as UserRole
   });
   const [agreedToTerms, setAgreedToTerms] = useState(false);
-  const [isLoading, setIsLoading] = useState(false);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    setIsLoading(true);
     
     // Validation
     if (!formData.firstName || !formData.lastName || !formData.email || !formData.password) {
@@ -36,7 +35,6 @@ const Register = () => {
         title: "Error",
         description: "Please fill in all required fields"
       });
-      setIsLoading(false);
       return;
     }
     
@@ -46,7 +44,6 @@ const Register = () => {
         title: "Error",
         description: "Passwords do not match"
       });
-      setIsLoading(false);
       return;
     }
     
@@ -56,46 +53,29 @@ const Register = () => {
         title: "Error",
         description: "Please agree to the Terms of Service and Privacy Policy"
       });
-      setIsLoading(false);
       return;
     }
     
-    // Handle registration logic here
-    console.log("Registration attempt:", formData);
-    
     const fullName = `${formData.firstName} ${formData.lastName}`;
+    const companyId = formData.role === 'company' ? `${formData.company.toLowerCase().replace(/\s+/g, '-')}-${Date.now()}` : undefined;
     
-    // For demo purposes, we'll create a company account
-    const success = login('company@gmail.com', 'company123', fullName);
+    const success = await register(formData.email, formData.password, {
+      fullName,
+      role: formData.role,
+      companyName: formData.company,
+      companyId
+    });
     
     if (success) {
       toast({
         title: "Success",
-        description: "Account created successfully! Welcome to ProjectHub."
+        description: "Account created successfully! Please check your email to verify your account."
       });
-      
-      // Check if user came from pricing selection
-      const selectedPlan = localStorage.getItem("selectedPlan");
-      if (selectedPlan) {
-        toast({
-          title: "Plan Selected",
-          description: `You've selected the ${selectedPlan} plan. Redirecting to complete setup...`
-        });
-        localStorage.removeItem("selectedPlan");
-      }
       
       setTimeout(() => {
-        navigate("/company");
-      }, 1500);
-    } else {
-      toast({
-        variant: "destructive",
-        title: "Registration Failed",
-        description: "There was an error creating your account. Please try again."
-      });
+        navigate("/login");
+      }, 2000);
     }
-    
-    setIsLoading(false);
   };
 
   const handleInputChange = (field: string, value: string) => {
@@ -136,7 +116,7 @@ const Register = () => {
           <CardHeader className="text-center bg-gradient-to-r from-emerald-50 to-amber-50 rounded-t-lg">
             <CardTitle className="text-2xl text-gray-900">Create your account</CardTitle>
             <CardDescription>
-              Start your 14-day free trial today
+              Join ProjectHub and start managing your projects
             </CardDescription>
           </CardHeader>
           <CardContent className="p-6">
@@ -179,6 +159,19 @@ const Register = () => {
                   required
                   className="border-emerald-200 focus:border-emerald-500"
                 />
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="role">Account Type</Label>
+                <Select value={formData.role} onValueChange={(value: UserRole) => handleInputChange("role", value)}>
+                  <SelectTrigger className="border-emerald-200 focus:border-emerald-500">
+                    <SelectValue placeholder="Select your role" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="company">Company Manager</SelectItem>
+                    <SelectItem value="client">Client</SelectItem>
+                  </SelectContent>
+                </Select>
               </div>
 
               <div className="space-y-2">
@@ -280,11 +273,12 @@ const Register = () => {
               <Button 
                 type="submit" 
                 className="w-full bg-emerald-600 hover:bg-emerald-700 shadow-lg hover:shadow-xl transition-all duration-300"
-                disabled={formData.password !== formData.confirmPassword || !agreedToTerms || isLoading}
+                disabled={formData.password !== formData.confirmPassword || !agreedToTerms || loading}
               >
-                {isLoading ? "Creating account..." : "Create account"}
+                {loading ? "Creating account..." : "Create account"}
               </Button>
 
+              {/* ... keep existing code (social signup buttons) */}
               <div className="relative">
                 <div className="absolute inset-0 flex items-center">
                   <span className="w-full border-t border-gray-300" />

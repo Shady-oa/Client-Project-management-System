@@ -7,6 +7,7 @@ import { BrowserRouter, Routes, Route } from "react-router-dom";
 import { UserProvider } from "./contexts/UserContext";
 import { ProjectProvider } from "./contexts/ProjectContext";
 import Layout from "./components/Layout";
+import ProtectedRoute from "./components/ProtectedRoute";
 import Dashboard from "./pages/Dashboard";
 import AdminDashboard from "./pages/AdminDashboard";
 import CompanyDashboard from "./pages/CompanyDashboard";
@@ -43,15 +44,51 @@ const App = () => (
               <Route path="/contact" element={<Contact />} />
               
               {/* Protected routes with layout */}
-              <Route path="/dashboard" element={<Layout><DashboardRouter /></Layout>} />
-              <Route path="/admin" element={<Layout><AdminDashboard /></Layout>} />
-              <Route path="/company" element={<Layout><CompanyDashboard /></Layout>} />
-              <Route path="/client" element={<Layout><ClientDashboard /></Layout>} />
-              <Route path="/projects" element={<Layout><Projects /></Layout>} />
-              <Route path="/kanban" element={<Layout><Kanban /></Layout>} />
-              <Route path="/issues" element={<Layout><Issues /></Layout>} />
-              <Route path="/users" element={<Layout><Users /></Layout>} />
-              <Route path="/billing" element={<Layout><Billing /></Layout>} />
+              <Route path="/dashboard" element={
+                <ProtectedRoute>
+                  <Layout><DashboardRouter /></Layout>
+                </ProtectedRoute>
+              } />
+              <Route path="/admin" element={
+                <ProtectedRoute>
+                  <Layout><AdminDashboard /></Layout>
+                </ProtectedRoute>
+              } />
+              <Route path="/company" element={
+                <ProtectedRoute>
+                  <Layout><CompanyDashboard /></Layout>
+                </ProtectedRoute>
+              } />
+              <Route path="/client" element={
+                <ProtectedRoute>
+                  <Layout><ClientDashboard /></Layout>
+                </ProtectedRoute>
+              } />
+              <Route path="/projects" element={
+                <ProtectedRoute>
+                  <Layout><Projects /></Layout>
+                </ProtectedRoute>
+              } />
+              <Route path="/kanban" element={
+                <ProtectedRoute>
+                  <Layout><Kanban /></Layout>
+                </ProtectedRoute>
+              } />
+              <Route path="/issues" element={
+                <ProtectedRoute>
+                  <Layout><Issues /></Layout>
+                </ProtectedRoute>
+              } />
+              <Route path="/users" element={
+                <ProtectedRoute>
+                  <Layout><Users /></Layout>
+                </ProtectedRoute>
+              } />
+              <Route path="/billing" element={
+                <ProtectedRoute>
+                  <Layout><Billing /></Layout>
+                </ProtectedRoute>
+              } />
               
               {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
               <Route path="*" element={<NotFound />} />

@@ -1,4 +1,3 @@
-
 import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
 import { useUser } from './UserContext';
 import { supabase } from '@/integrations/supabase/client';
@@ -83,14 +82,14 @@ interface ProjectProviderProps {
 }
 
 export const ProjectProvider: React.FC<ProjectProviderProps> = ({ children }) => {
-  const { user, isAdmin, isCompany, isClient } = useUser();
+  const { user, isAdmin, isCompany, isClient, session } = useUser();
   const [projects, setProjects] = useState<Project[]>([]);
   const [issues, setIssues] = useState<Issue[]>([]);
   const [teamMembers, setTeamMembers] = useState<TeamMember[]>([]);
   const [loading, setLoading] = useState(false);
 
   const fetchProjects = async () => {
-    if (!user) return;
+    if (!user || !session) return;
     
     setLoading(true);
     try {
@@ -132,7 +131,7 @@ export const ProjectProvider: React.FC<ProjectProviderProps> = ({ children }) =>
   };
 
   const fetchTeamMembers = async () => {
-    if (!user) return;
+    if (!user || !session) return;
 
     try {
       const { data, error } = await supabase
@@ -160,7 +159,7 @@ export const ProjectProvider: React.FC<ProjectProviderProps> = ({ children }) =>
   };
 
   const fetchIssues = async () => {
-    if (!user) return;
+    if (!user || !session) return;
 
     try {
       const { data, error } = await supabase
@@ -192,15 +191,15 @@ export const ProjectProvider: React.FC<ProjectProviderProps> = ({ children }) =>
   };
 
   useEffect(() => {
-    if (user) {
+    if (user && session) {
       fetchProjects();
       fetchTeamMembers();
       fetchIssues();
     }
-  }, [user]);
+  }, [user, session]);
 
   const addProject = async (project: Omit<Project, 'id'>) => {
-    if (!user) return;
+    if (!user || !session) return;
 
     try {
       const { data, error } = await supabase
@@ -390,7 +389,6 @@ export const ProjectProvider: React.FC<ProjectProviderProps> = ({ children }) =>
     try {
       await updateProject(projectId, { assignedTo: memberIds });
       
-      // Update team member project lists
       for (const memberId of memberIds) {
         const member = teamMembers.find(m => m.id === memberId);
         if (member) {

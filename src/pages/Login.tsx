@@ -1,4 +1,3 @@
-
 import { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
@@ -11,17 +10,15 @@ import { useToast } from "@/hooks/use-toast";
 
 const Login = () => {
   const navigate = useNavigate();
-  const { login } = useUser();
+  const { login, loading } = useUser();
   const { toast } = useToast();
   const [showPassword, setShowPassword] = useState(false);
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [rememberMe, setRememberMe] = useState(false);
-  const [isLoading, setIsLoading] = useState(false);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    setIsLoading(true);
     
     if (!email || !password) {
       toast({
@@ -29,11 +26,10 @@ const Login = () => {
         title: "Error",
         description: "Please enter both email and password"
       });
-      setIsLoading(false);
       return;
     }
 
-    const success = login(email, password);
+    const success = await login(email, password);
     
     if (success) {
       toast({
@@ -41,27 +37,10 @@ const Login = () => {
         description: "Login successful! Redirecting..."
       });
       
-      // Navigate based on role
       setTimeout(() => {
-        if (email === 'admin@gmail.com') {
-          navigate("/admin");
-        } else if (email === 'company@gmail.com') {
-          navigate("/company");
-        } else if (email === 'client@gmail.com') {
-          navigate("/client");
-        } else {
-          navigate("/dashboard");
-        }
+        navigate("/dashboard");
       }, 1000);
-    } else {
-      toast({
-        variant: "destructive",
-        title: "Login Failed",
-        description: "Invalid email or password. Please try again."
-      });
     }
-    
-    setIsLoading(false);
   };
 
   const handleSocialLogin = (provider: string) => {
@@ -175,9 +154,9 @@ const Login = () => {
               <Button 
                 type="submit" 
                 className="w-full bg-emerald-600 hover:bg-emerald-700 shadow-lg hover:shadow-xl transition-all duration-300"
-                disabled={isLoading}
+                disabled={loading}
               >
-                {isLoading ? "Signing in..." : "Sign in"}
+                {loading ? "Signing in..." : "Sign in"}
               </Button>
 
               <div className="relative">
@@ -215,16 +194,6 @@ const Login = () => {
                   </svg>
                   GitHub
                 </Button>
-              </div>
-
-              {/* Demo Credentials */}
-              <div className="mt-6 p-4 bg-emerald-50 rounded-lg border border-emerald-200">
-                <h4 className="text-sm font-medium text-emerald-800 mb-2">Demo Credentials:</h4>
-                <div className="text-xs text-emerald-700 space-y-1">
-                  <div><strong>Admin:</strong> admin@gmail.com / admin123</div>
-                  <div><strong>Company:</strong> company@gmail.com / company123</div>
-                  <div><strong>Client:</strong> client@gmail.com / client123</div>
-                </div>
               </div>
             </form>
 
