@@ -1,6 +1,8 @@
 
-import React, { createContext, useContext, useState, ReactNode } from 'react';
+import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
 import { useUser } from './UserContext';
+import { supabase } from '@/integrations/supabase/client';
+import { toast } from 'sonner';
 
 export interface Project {
   id: string;
@@ -51,17 +53,19 @@ interface ProjectContextType {
   projects: Project[];
   issues: Issue[];
   teamMembers: TeamMember[];
-  updateProject: (projectId: string, updates: Partial<Project>) => void;
-  addProject: (project: Omit<Project, 'id'>) => void;
-  deleteProject: (projectId: string) => void;
-  addIssue: (issue: Omit<Issue, 'id'>) => void;
-  updateIssue: (issueId: string, updates: Partial<Issue>) => void;
-  addTeamMember: (member: Omit<TeamMember, 'id'>) => void;
-  updateTeamMember: (memberId: string, updates: Partial<TeamMember>) => void;
-  assignProjectToTeam: (projectId: string, memberIds: string[]) => void;
+  loading: boolean;
+  updateProject: (projectId: string, updates: Partial<Project>) => Promise<void>;
+  addProject: (project: Omit<Project, 'id'>) => Promise<void>;
+  deleteProject: (projectId: string) => Promise<void>;
+  addIssue: (issue: Omit<Issue, 'id'>) => Promise<void>;
+  updateIssue: (issueId: string, updates: Partial<Issue>) => Promise<void>;
+  addTeamMember: (member: Omit<TeamMember, 'id'>) => Promise<void>;
+  updateTeamMember: (memberId: string, updates: Partial<TeamMember>) => Promise<void>;
+  assignProjectToTeam: (projectId: string, memberIds: string[]) => Promise<void>;
   getProjectsByRole: () => Project[];
   getIssuesByRole: () => Issue[];
   getTeamMembersByRole: () => TeamMember[];
+  fetchProjects: () => Promise<void>;
 }
 
 const ProjectContext = createContext<ProjectContextType | undefined>(undefined);
@@ -80,190 +84,329 @@ interface ProjectProviderProps {
 
 export const ProjectProvider: React.FC<ProjectProviderProps> = ({ children }) => {
   const { user, isAdmin, isCompany, isClient } = useUser();
+  const [projects, setProjects] = useState<Project[]>([]);
+  const [issues, setIssues] = useState<Issue[]>([]);
+  const [teamMembers, setTeamMembers] = useState<TeamMember[]>([]);
+  const [loading, setLoading] = useState(false);
 
-  const [projects, setProjects] = useState<Project[]>([
-    {
-      id: '1',
-      name: 'E-commerce Platform Redesign',
-      description: 'Complete overhaul of company website with modern design and improved user experience',
-      status: 'In Progress',
-      progress: 75,
-      team: [],
-      dueDate: '2024-07-15',
-      priority: 'High',
-      client: 'RetailMax Corp',
-      clientId: 'client-1',
-      companyId: 'acme-corp',
-      budget: 850000,
-      spent: 637500,
-      phase: 'Development',
-      nextMilestone: 'Beta Testing',
-      lastUpdate: '2024-05-30',
-      createdBy: 'company-user-1',
-      assignedTo: ['team-1', 'team-2', 'team-3']
-    },
-    {
-      id: '2',
-      name: 'Mobile Banking App',
-      description: 'iOS and Android application for customer engagement',
-      status: 'Testing',
-      progress: 90,
-      team: [],
-      dueDate: '2024-06-20',
-      priority: 'Critical',
-      client: 'SecureBank Ltd',
-      clientId: 'client-2',
-      companyId: 'acme-corp',
-      budget: 1200000,
-      spent: 1080000,
-      phase: 'Quality Assurance',
-      nextMilestone: 'App Store Submission',
-      lastUpdate: '2024-05-29',
-      createdBy: 'company-user-1',
-      assignedTo: ['team-1', 'team-4']
-    }
-  ]);
-
-  const [issues, setIssues] = useState<Issue[]>([
-    {
-      id: '1',
-      title: 'Login button not working on mobile',
-      description: 'Users cannot login using mobile devices due to button responsiveness issue',
-      status: 'Open',
-      priority: 'High',
-      projectId: '1',
-      assignedTo: 'team-1',
-      createdBy: 'client-1',
-      createdAt: '2024-05-30',
-      updatedAt: '2024-05-30',
-      labels: ['bug', 'mobile', 'urgent']
-    },
-    {
-      id: '2',
-      title: 'Performance optimization needed',
-      description: 'App loading time is slower than expected on older devices',
-      status: 'In Progress',
-      priority: 'Medium',
-      projectId: '2',
-      assignedTo: 'team-4',
-      createdBy: 'client-2',
-      createdAt: '2024-05-28',
-      updatedAt: '2024-05-29',
-      labels: ['performance', 'optimization']
-    }
-  ]);
-
-  const [teamMembers, setTeamMembers] = useState<TeamMember[]>([
-    {
-      id: 'team-1',
-      name: 'Sarah Chen',
-      email: 'sarah.chen@company.com',
-      role: 'Project Manager',
-      avatar: 'SC',
-      projects: ['1', '2'],
-      status: 'Active'
-    },
-    {
-      id: 'team-2',
-      name: 'Mike Johnson',
-      email: 'mike.johnson@company.com',
-      role: 'Full Stack Developer',
-      avatar: 'MJ',
-      projects: ['1'],
-      status: 'Active'
-    },
-    {
-      id: 'team-3',
-      name: 'Emma Davis',
-      email: 'emma.davis@company.com',
-      role: 'UI/UX Designer',
-      avatar: 'ED',
-      projects: ['1'],
-      status: 'Active'
-    },
-    {
-      id: 'team-4',
-      name: 'Alex Rodriguez',
-      email: 'alex.rodriguez@company.com',
-      role: 'Backend Developer',
-      avatar: 'AR',
-      projects: ['2'],
-      status: 'Active'
-    }
-  ]);
-
-  const updateProject = (projectId: string, updates: Partial<Project>) => {
-    setProjects(prev => prev.map(project => 
-      project.id === projectId 
-        ? { ...project, ...updates, lastUpdate: new Date().toISOString().split('T')[0] }
-        : project
-    ));
-  };
-
-  const addProject = (project: Omit<Project, 'id'>) => {
-    const newProject: Project = {
-      ...project,
-      id: Date.now().toString(),
-      companyId: user?.companyId || 'default-company',
-      createdBy: user?.id || 'unknown',
-      lastUpdate: new Date().toISOString().split('T')[0]
-    };
-    setProjects(prev => [...prev, newProject]);
-  };
-
-  const deleteProject = (projectId: string) => {
-    setProjects(prev => prev.filter(project => project.id !== projectId));
-    setIssues(prev => prev.filter(issue => issue.projectId !== projectId));
-  };
-
-  const addIssue = (issue: Omit<Issue, 'id'>) => {
-    const newIssue: Issue = {
-      ...issue,
-      id: Date.now().toString(),
-      createdAt: new Date().toISOString(),
-      updatedAt: new Date().toISOString()
-    };
-    setIssues(prev => [...prev, newIssue]);
-  };
-
-  const updateIssue = (issueId: string, updates: Partial<Issue>) => {
-    setIssues(prev => prev.map(issue => 
-      issue.id === issueId 
-        ? { ...issue, ...updates, updatedAt: new Date().toISOString() }
-        : issue
-    ));
-  };
-
-  const addTeamMember = (member: Omit<TeamMember, 'id'>) => {
-    const newMember: TeamMember = {
-      ...member,
-      id: Date.now().toString()
-    };
-    setTeamMembers(prev => [...prev, newMember]);
-  };
-
-  const updateTeamMember = (memberId: string, updates: Partial<TeamMember>) => {
-    setTeamMembers(prev => prev.map(member => 
-      member.id === memberId ? { ...member, ...updates } : member
-    ));
-  };
-
-  const assignProjectToTeam = (projectId: string, memberIds: string[]) => {
-    // Update project assignments
-    updateProject(projectId, { assignedTo: memberIds });
+  const fetchProjects = async () => {
+    if (!user) return;
     
-    // Update team member project lists
-    setTeamMembers(prev => prev.map(member => ({
-      ...member,
-      projects: memberIds.includes(member.id) 
-        ? [...new Set([...member.projects, projectId])]
-        : member.projects.filter(id => id !== projectId)
-    })));
+    setLoading(true);
+    try {
+      const { data, error } = await supabase
+        .from('projects')
+        .select('*')
+        .order('created_at', { ascending: false });
+
+      if (error) throw error;
+
+      const formattedProjects: Project[] = data.map(project => ({
+        id: project.id,
+        name: project.name,
+        description: project.description || '',
+        status: project.status as Project['status'],
+        progress: project.progress,
+        team: [],
+        dueDate: project.due_date || '',
+        priority: project.priority as Project['priority'],
+        client: project.client,
+        clientId: project.client_id || undefined,
+        companyId: project.company_id,
+        budget: Number(project.budget) || 0,
+        spent: Number(project.spent) || 0,
+        phase: project.phase || '',
+        nextMilestone: project.next_milestone || '',
+        lastUpdate: new Date(project.updated_at).toISOString().split('T')[0],
+        createdBy: project.created_by || '',
+        assignedTo: project.assigned_to || []
+      }));
+
+      setProjects(formattedProjects);
+    } catch (error) {
+      console.error('Error fetching projects:', error);
+      toast.error('Failed to fetch projects');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const fetchTeamMembers = async () => {
+    if (!user) return;
+
+    try {
+      const { data, error } = await supabase
+        .from('team_members')
+        .select('*')
+        .order('created_at', { ascending: false });
+
+      if (error) throw error;
+
+      const formattedMembers: TeamMember[] = data.map(member => ({
+        id: member.id,
+        name: member.name,
+        email: member.email,
+        role: member.role,
+        avatar: member.avatar || member.name.split(' ').map(n => n[0]).join(''),
+        projects: member.projects || [],
+        status: member.status as TeamMember['status']
+      }));
+
+      setTeamMembers(formattedMembers);
+    } catch (error) {
+      console.error('Error fetching team members:', error);
+      toast.error('Failed to fetch team members');
+    }
+  };
+
+  const fetchIssues = async () => {
+    if (!user) return;
+
+    try {
+      const { data, error } = await supabase
+        .from('issues')
+        .select('*')
+        .order('created_at', { ascending: false });
+
+      if (error) throw error;
+
+      const formattedIssues: Issue[] = data.map(issue => ({
+        id: issue.id,
+        title: issue.title,
+        description: issue.description || '',
+        status: issue.status as Issue['status'],
+        priority: issue.priority as Issue['priority'],
+        projectId: issue.project_id || '',
+        assignedTo: issue.assigned_to || undefined,
+        createdBy: issue.created_by || '',
+        createdAt: issue.created_at,
+        updatedAt: issue.updated_at,
+        labels: issue.labels || []
+      }));
+
+      setIssues(formattedIssues);
+    } catch (error) {
+      console.error('Error fetching issues:', error);
+      toast.error('Failed to fetch issues');
+    }
+  };
+
+  useEffect(() => {
+    if (user) {
+      fetchProjects();
+      fetchTeamMembers();
+      fetchIssues();
+    }
+  }, [user]);
+
+  const addProject = async (project: Omit<Project, 'id'>) => {
+    if (!user) return;
+
+    try {
+      const { data, error } = await supabase
+        .from('projects')
+        .insert({
+          name: project.name,
+          description: project.description,
+          status: project.status,
+          progress: project.progress,
+          due_date: project.dueDate || null,
+          priority: project.priority,
+          client: project.client,
+          client_id: project.clientId || null,
+          company_id: project.companyId,
+          budget: project.budget,
+          spent: project.spent || 0,
+          phase: project.phase || null,
+          next_milestone: project.nextMilestone || null,
+          created_by: user.id,
+          assigned_to: project.assignedTo || []
+        })
+        .select()
+        .single();
+
+      if (error) throw error;
+
+      await fetchProjects();
+      toast.success('Project created successfully');
+    } catch (error) {
+      console.error('Error adding project:', error);
+      toast.error('Failed to create project');
+    }
+  };
+
+  const updateProject = async (projectId: string, updates: Partial<Project>) => {
+    try {
+      const { error } = await supabase
+        .from('projects')
+        .update({
+          name: updates.name,
+          description: updates.description,
+          status: updates.status,
+          progress: updates.progress,
+          due_date: updates.dueDate,
+          priority: updates.priority,
+          client: updates.client,
+          budget: updates.budget,
+          spent: updates.spent,
+          phase: updates.phase,
+          next_milestone: updates.nextMilestone,
+          assigned_to: updates.assignedTo,
+          updated_at: new Date().toISOString()
+        })
+        .eq('id', projectId);
+
+      if (error) throw error;
+
+      await fetchProjects();
+      toast.success('Project updated successfully');
+    } catch (error) {
+      console.error('Error updating project:', error);
+      toast.error('Failed to update project');
+    }
+  };
+
+  const deleteProject = async (projectId: string) => {
+    try {
+      const { error } = await supabase
+        .from('projects')
+        .delete()
+        .eq('id', projectId);
+
+      if (error) throw error;
+
+      await fetchProjects();
+      toast.success('Project deleted successfully');
+    } catch (error) {
+      console.error('Error deleting project:', error);
+      toast.error('Failed to delete project');
+    }
+  };
+
+  const addIssue = async (issue: Omit<Issue, 'id'>) => {
+    if (!user) return;
+
+    try {
+      const { error } = await supabase
+        .from('issues')
+        .insert({
+          title: issue.title,
+          description: issue.description,
+          status: issue.status,
+          priority: issue.priority,
+          project_id: issue.projectId,
+          assigned_to: issue.assignedTo || null,
+          created_by: user.id,
+          labels: issue.labels || []
+        });
+
+      if (error) throw error;
+
+      await fetchIssues();
+      toast.success('Issue created successfully');
+    } catch (error) {
+      console.error('Error adding issue:', error);
+      toast.error('Failed to create issue');
+    }
+  };
+
+  const updateIssue = async (issueId: string, updates: Partial<Issue>) => {
+    try {
+      const { error } = await supabase
+        .from('issues')
+        .update({
+          title: updates.title,
+          description: updates.description,
+          status: updates.status,
+          priority: updates.priority,
+          assigned_to: updates.assignedTo,
+          labels: updates.labels,
+          updated_at: new Date().toISOString()
+        })
+        .eq('id', issueId);
+
+      if (error) throw error;
+
+      await fetchIssues();
+      toast.success('Issue updated successfully');
+    } catch (error) {
+      console.error('Error updating issue:', error);
+      toast.error('Failed to update issue');
+    }
+  };
+
+  const addTeamMember = async (member: Omit<TeamMember, 'id'>) => {
+    if (!user) return;
+
+    try {
+      const { error } = await supabase
+        .from('team_members')
+        .insert({
+          name: member.name,
+          email: member.email,
+          role: member.role,
+          avatar: member.avatar,
+          projects: member.projects || [],
+          status: member.status,
+          company_id: user.companyId || ''
+        });
+
+      if (error) throw error;
+
+      await fetchTeamMembers();
+      toast.success('Team member added successfully');
+    } catch (error) {
+      console.error('Error adding team member:', error);
+      toast.error('Failed to add team member');
+    }
+  };
+
+  const updateTeamMember = async (memberId: string, updates: Partial<TeamMember>) => {
+    try {
+      const { error } = await supabase
+        .from('team_members')
+        .update({
+          name: updates.name,
+          email: updates.email,
+          role: updates.role,
+          avatar: updates.avatar,
+          projects: updates.projects,
+          status: updates.status,
+          updated_at: new Date().toISOString()
+        })
+        .eq('id', memberId);
+
+      if (error) throw error;
+
+      await fetchTeamMembers();
+      toast.success('Team member updated successfully');
+    } catch (error) {
+      console.error('Error updating team member:', error);
+      toast.error('Failed to update team member');
+    }
+  };
+
+  const assignProjectToTeam = async (projectId: string, memberIds: string[]) => {
+    try {
+      await updateProject(projectId, { assignedTo: memberIds });
+      
+      // Update team member project lists
+      for (const memberId of memberIds) {
+        const member = teamMembers.find(m => m.id === memberId);
+        if (member) {
+          const updatedProjects = [...new Set([...member.projects, projectId])];
+          await updateTeamMember(memberId, { projects: updatedProjects });
+        }
+      }
+    } catch (error) {
+      console.error('Error assigning project to team:', error);
+      toast.error('Failed to assign project to team');
+    }
   };
 
   const getProjectsByRole = (): Project[] => {
     if (isAdmin) {
-      return projects; // Admin sees all projects
+      return projects;
     } else if (isCompany) {
       return projects.filter(project => project.companyId === user?.companyId);
     } else if (isClient) {
@@ -277,7 +420,7 @@ export const ProjectProvider: React.FC<ProjectProviderProps> = ({ children }) =>
     const projectIds = userProjects.map(p => p.id);
     
     if (isAdmin) {
-      return issues; // Admin sees all issues
+      return issues;
     } else if (isCompany) {
       return issues.filter(issue => projectIds.includes(issue.projectId));
     } else if (isClient) {
@@ -290,9 +433,9 @@ export const ProjectProvider: React.FC<ProjectProviderProps> = ({ children }) =>
 
   const getTeamMembersByRole = (): TeamMember[] => {
     if (isAdmin) {
-      return teamMembers; // Admin sees all team members
+      return teamMembers;
     } else if (isCompany) {
-      return teamMembers; // Company sees their team members
+      return teamMembers;
     } else if (isClient) {
       const userProjects = getProjectsByRole();
       const assignedMemberIds = userProjects.flatMap(p => p.assignedTo);
@@ -307,6 +450,7 @@ export const ProjectProvider: React.FC<ProjectProviderProps> = ({ children }) =>
         projects,
         issues,
         teamMembers,
+        loading,
         updateProject,
         addProject,
         deleteProject,
@@ -318,6 +462,7 @@ export const ProjectProvider: React.FC<ProjectProviderProps> = ({ children }) =>
         getProjectsByRole,
         getIssuesByRole,
         getTeamMembersByRole,
+        fetchProjects,
       }}
     >
       {children}

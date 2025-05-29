@@ -1,4 +1,3 @@
-
 import { useState } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -10,11 +9,11 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { useUser } from "@/contexts/UserContext";
 import { useProject } from "@/contexts/ProjectContext";
-import { Plus, Search, Filter, Grid, List, Calendar, Users, DollarSign, Settings } from "lucide-react";
+import { Plus, Search, Filter, Grid, List, Calendar, Users, DollarSign, Settings, Loader2 } from "lucide-react";
 
 const Projects = () => {
   const { user, isAdmin, isCompany, isClient } = useUser();
-  const { projects, addProject } = useProject();
+  const { projects, addProject, loading } = useProject();
   const [searchTerm, setSearchTerm] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
   const [priorityFilter, setPriorityFilter] = useState("all");
@@ -29,9 +28,9 @@ const Projects = () => {
     budget: 0
   });
 
-  const handleAddProject = () => {
-    if (newProject.name && newProject.description && isCompany) {
-      addProject({
+  const handleAddProject = async () => {
+    if (newProject.name && newProject.description && isCompany && user?.companyId) {
+      await addProject({
         name: newProject.name,
         description: newProject.description,
         status: "Planning",
@@ -41,10 +40,14 @@ const Projects = () => {
         priority: newProject.priority,
         client: newProject.client,
         budget: newProject.budget,
-        createdAt: new Date().toISOString(),
-        updatedAt: new Date().toISOString(),
-        companyId: user?.companyId || "",
-        assignedTo: []
+        spent: 0,
+        phase: "Planning",
+        nextMilestone: "",
+        lastUpdate: new Date().toISOString().split('T')[0],
+        createdBy: user.id,
+        assignedTo: [],
+        companyId: user.companyId,
+        clientId: undefined
       });
       
       setNewProject({
@@ -61,21 +64,13 @@ const Projects = () => {
 
   // Filter projects based on user role
   const filteredProjects = projects.filter(project => {
-    // Role-based filtering
-    let roleFilter = true;
-    if (isClient) {
-      roleFilter = project.client === user?.companyName;
-    } else if (isCompany) {
-      roleFilter = project.companyId === user?.companyId;
-    }
-    // Admin sees all projects
-
+    // Role-based filtering is now handled in ProjectContext getProjectsByRole
     const matchesSearch = project.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
                          project.client.toLowerCase().includes(searchTerm.toLowerCase());
     const matchesStatus = statusFilter === "all" || project.status.toLowerCase() === statusFilter;
     const matchesPriority = priorityFilter === "all" || project.priority.toLowerCase() === priorityFilter;
     
-    return roleFilter && matchesSearch && matchesStatus && matchesPriority;
+    return matchesSearch && matchesStatus && matchesPriority;
   });
 
   const getStatusColor = (status: string) => {
@@ -97,6 +92,17 @@ const Projects = () => {
       default: return "bg-gray-100 text-gray-800";
     }
   };
+
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-emerald-50 via-white to-amber-50 flex items-center justify-center">
+        <div className="text-center">
+          <Loader2 className="w-8 h-8 animate-spin mx-auto mb-4 text-emerald-600" />
+          <p className="text-gray-600">Loading projects...</p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-emerald-50 via-white to-amber-50">
@@ -313,7 +319,7 @@ const Projects = () => {
                       </div>
                       <div className="flex items-center gap-1">
                         <Calendar className="w-4 h-4" />
-                        {new Date(project.dueDate).toLocaleDateString()}
+                        {project.dueDate ? new Date(project.dueDate).toLocaleDateString() : 'No due date'}
                       </div>
                     </div>
                     
@@ -361,7 +367,7 @@ const Projects = () => {
                           </div>
                           <span>{project.team?.length || 0} members</span>
                           <span>{project.client}</span>
-                          <span>Due {new Date(project.dueDate).toLocaleDateString()}</span>
+                          <span>Due {project.dueDate ? new Date(project.dueDate).toLocaleDateString() : 'No due date'}</span>
                         </div>
                       </div>
 
