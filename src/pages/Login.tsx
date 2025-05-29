@@ -6,64 +6,107 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Briefcase, Eye, EyeOff } from "lucide-react";
+import { useUser } from "@/contexts/UserContext";
+import { useToast } from "@/hooks/use-toast";
 
 const Login = () => {
   const navigate = useNavigate();
+  const { login } = useUser();
+  const { toast } = useToast();
   const [showPassword, setShowPassword] = useState(false);
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [rememberMe, setRememberMe] = useState(false);
+  const [isLoading, setIsLoading] = useState(false);
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    // Handle login logic here
-    console.log("Login attempt:", { email, password, rememberMe });
+    setIsLoading(true);
     
-    // For demo purposes, simulate successful login
-    if (email && password) {
-      localStorage.setItem("isLoggedIn", "true");
-      localStorage.setItem("userEmail", email);
-      navigate("/dashboard");
-    } else {
-      alert("Please enter both email and password");
+    if (!email || !password) {
+      toast({
+        variant: "destructive",
+        title: "Error",
+        description: "Please enter both email and password"
+      });
+      setIsLoading(false);
+      return;
     }
+
+    const success = login(email, password);
+    
+    if (success) {
+      toast({
+        title: "Success",
+        description: "Login successful! Redirecting..."
+      });
+      
+      // Navigate based on role
+      setTimeout(() => {
+        if (email === 'admin@gmail.com') {
+          navigate("/admin");
+        } else if (email === 'company@gmail.com') {
+          navigate("/company");
+        } else if (email === 'client@gmail.com') {
+          navigate("/client");
+        } else {
+          navigate("/dashboard");
+        }
+      }, 1000);
+    } else {
+      toast({
+        variant: "destructive",
+        title: "Login Failed",
+        description: "Invalid email or password. Please try again."
+      });
+    }
+    
+    setIsLoading(false);
   };
 
   const handleSocialLogin = (provider: string) => {
-    console.log(`${provider} login attempted`);
-    // In a real app, this would handle OAuth
-    alert(`${provider} login would be handled here`);
+    toast({
+      title: "Coming Soon",
+      description: `${provider} login will be available soon`
+    });
   };
 
   const handleForgotPassword = () => {
     if (email) {
-      alert(`Password reset link sent to ${email}`);
+      toast({
+        title: "Password Reset",
+        description: `Password reset link sent to ${email}`
+      });
     } else {
-      alert("Please enter your email first");
+      toast({
+        variant: "destructive",
+        title: "Error",
+        description: "Please enter your email first"
+      });
     }
   };
 
   return (
-    <div className="min-h-screen bg-gray-50 flex items-center justify-center p-6">
+    <div className="min-h-screen bg-gradient-to-br from-emerald-50 via-white to-amber-50 flex items-center justify-center p-6">
       <div className="w-full max-w-md">
         {/* Logo */}
-        <div className="text-center mb-8">
+        <div className="text-center mb-8 animate-fade-in">
           <Link to="/" className="inline-flex items-center gap-2">
-            <div className="w-10 h-10 bg-blue-600 rounded-lg flex items-center justify-center">
+            <div className="w-10 h-10 bg-gradient-to-br from-emerald-600 to-amber-600 rounded-lg flex items-center justify-center">
               <Briefcase className="w-6 h-6 text-white" />
             </div>
-            <span className="text-2xl font-bold text-gray-900">ProjectHub</span>
+            <span className="text-2xl font-bold bg-gradient-to-r from-emerald-600 to-amber-600 bg-clip-text text-transparent">ProjectHub</span>
           </Link>
         </div>
 
-        <Card className="border-gray-200 shadow-sm">
-          <CardHeader className="text-center">
+        <Card className="border-0 shadow-xl bg-white/80 backdrop-blur-sm animate-fade-in" style={{animationDelay: "200ms"}}>
+          <CardHeader className="text-center bg-gradient-to-r from-emerald-50 to-amber-50 rounded-t-lg">
             <CardTitle className="text-2xl text-gray-900">Welcome back</CardTitle>
             <CardDescription>
               Sign in to your account to continue
             </CardDescription>
           </CardHeader>
-          <CardContent>
+          <CardContent className="p-6">
             <form onSubmit={handleSubmit} className="space-y-4">
               <div className="space-y-2">
                 <Label htmlFor="email">Email address</Label>
@@ -74,7 +117,7 @@ const Login = () => {
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
                   required
-                  className="border-gray-300"
+                  className="border-emerald-200 focus:border-emerald-500"
                 />
               </div>
               
@@ -88,7 +131,7 @@ const Login = () => {
                     value={password}
                     onChange={(e) => setPassword(e.target.value)}
                     required
-                    className="border-gray-300 pr-10"
+                    className="border-emerald-200 focus:border-emerald-500 pr-10"
                   />
                   <Button
                     type="button"
@@ -113,7 +156,7 @@ const Login = () => {
                     type="checkbox"
                     checked={rememberMe}
                     onChange={(e) => setRememberMe(e.target.checked)}
-                    className="w-4 h-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
+                    className="w-4 h-4 text-emerald-600 border-gray-300 rounded focus:ring-emerald-500"
                   />
                   <Label htmlFor="remember" className="text-sm text-gray-600">
                     Remember me
@@ -122,15 +165,19 @@ const Login = () => {
                 <Button
                   type="button"
                   variant="link"
-                  className="text-sm text-blue-600 hover:text-blue-700 p-0"
+                  className="text-sm text-emerald-600 hover:text-emerald-700 p-0"
                   onClick={handleForgotPassword}
                 >
                   Forgot password?
                 </Button>
               </div>
 
-              <Button type="submit" className="w-full bg-blue-600 hover:bg-blue-700">
-                Sign in
+              <Button 
+                type="submit" 
+                className="w-full bg-emerald-600 hover:bg-emerald-700 shadow-lg hover:shadow-xl transition-all duration-300"
+                disabled={isLoading}
+              >
+                {isLoading ? "Signing in..." : "Sign in"}
               </Button>
 
               <div className="relative">
@@ -146,7 +193,7 @@ const Login = () => {
                 <Button 
                   type="button"
                   variant="outline" 
-                  className="border-gray-300"
+                  className="border-emerald-300 hover:bg-emerald-50"
                   onClick={() => handleSocialLogin("Google")}
                 >
                   <svg className="w-4 h-4 mr-2" viewBox="0 0 24 24">
@@ -160,7 +207,7 @@ const Login = () => {
                 <Button 
                   type="button"
                   variant="outline" 
-                  className="border-gray-300"
+                  className="border-emerald-300 hover:bg-emerald-50"
                   onClick={() => handleSocialLogin("GitHub")}
                 >
                   <svg className="w-4 h-4 mr-2" fill="currentColor" viewBox="0 0 24 24">
@@ -169,18 +216,28 @@ const Login = () => {
                   GitHub
                 </Button>
               </div>
+
+              {/* Demo Credentials */}
+              <div className="mt-6 p-4 bg-emerald-50 rounded-lg border border-emerald-200">
+                <h4 className="text-sm font-medium text-emerald-800 mb-2">Demo Credentials:</h4>
+                <div className="text-xs text-emerald-700 space-y-1">
+                  <div><strong>Admin:</strong> admin@gmail.com / admin123</div>
+                  <div><strong>Company:</strong> company@gmail.com / company123</div>
+                  <div><strong>Client:</strong> client@gmail.com / client123</div>
+                </div>
+              </div>
             </form>
 
             <div className="mt-6 text-center text-sm text-gray-600">
               Don't have an account?{" "}
-              <Link to="/register" className="text-blue-600 hover:text-blue-700 font-medium">
+              <Link to="/register" className="text-emerald-600 hover:text-emerald-700 font-medium">
                 Sign up
               </Link>
             </div>
           </CardContent>
         </Card>
 
-        <div className="mt-8 text-center">
+        <div className="mt-8 text-center animate-fade-in" style={{animationDelay: "400ms"}}>
           <Link to="/" className="text-sm text-gray-500 hover:text-gray-700">
             ← Back to home
           </Link>

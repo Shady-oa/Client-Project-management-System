@@ -22,7 +22,6 @@ import Register from "./pages/Register";
 import About from "./pages/About";
 import Contact from "./pages/Contact";
 import NotFound from "./pages/NotFound";
-import RoleSwitcher from "./components/RoleSwitcher";
 import DashboardRouter from "./components/DashboardRouter";
 
 const queryClient = new QueryClient();
@@ -35,7 +34,6 @@ const App = () => (
           <Toaster />
           <Sonner />
           <BrowserRouter>
-            <RoleSwitcher />
             <Routes>
               {/* Public routes */}
               <Route path="/" element={<Landing />} />

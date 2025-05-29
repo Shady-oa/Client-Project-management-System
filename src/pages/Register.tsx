@@ -6,9 +6,13 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Briefcase, Eye, EyeOff, CheckCircle } from "lucide-react";
+import { useUser } from "@/contexts/UserContext";
+import { useToast } from "@/hooks/use-toast";
 
 const Register = () => {
   const navigate = useNavigate();
+  const { login } = useUser();
+  const { toast } = useToast();
   const [showPassword, setShowPassword] = useState(false);
   const [formData, setFormData] = useState({
     firstName: "",
@@ -19,42 +23,79 @@ const Register = () => {
     confirmPassword: ""
   });
   const [agreedToTerms, setAgreedToTerms] = useState(false);
+  const [isLoading, setIsLoading] = useState(false);
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    setIsLoading(true);
     
     // Validation
     if (!formData.firstName || !formData.lastName || !formData.email || !formData.password) {
-      alert("Please fill in all required fields");
+      toast({
+        variant: "destructive",
+        title: "Error",
+        description: "Please fill in all required fields"
+      });
+      setIsLoading(false);
       return;
     }
     
     if (formData.password !== formData.confirmPassword) {
-      alert("Passwords do not match");
+      toast({
+        variant: "destructive",
+        title: "Error",
+        description: "Passwords do not match"
+      });
+      setIsLoading(false);
       return;
     }
     
     if (!agreedToTerms) {
-      alert("Please agree to the Terms of Service and Privacy Policy");
+      toast({
+        variant: "destructive",
+        title: "Error",
+        description: "Please agree to the Terms of Service and Privacy Policy"
+      });
+      setIsLoading(false);
       return;
     }
     
     // Handle registration logic here
     console.log("Registration attempt:", formData);
     
-    // For demo purposes, simulate successful registration
-    localStorage.setItem("isLoggedIn", "true");
-    localStorage.setItem("userEmail", formData.email);
-    localStorage.setItem("userName", `${formData.firstName} ${formData.lastName}`);
+    const fullName = `${formData.firstName} ${formData.lastName}`;
     
-    // Check if user came from pricing selection
-    const selectedPlan = localStorage.getItem("selectedPlan");
-    if (selectedPlan) {
-      alert(`Welcome! You've selected the ${selectedPlan} plan. Redirecting to complete setup...`);
-      localStorage.removeItem("selectedPlan");
+    // For demo purposes, we'll create a company account
+    const success = login('company@gmail.com', 'company123', fullName);
+    
+    if (success) {
+      toast({
+        title: "Success",
+        description: "Account created successfully! Welcome to ProjectHub."
+      });
+      
+      // Check if user came from pricing selection
+      const selectedPlan = localStorage.getItem("selectedPlan");
+      if (selectedPlan) {
+        toast({
+          title: "Plan Selected",
+          description: `You've selected the ${selectedPlan} plan. Redirecting to complete setup...`
+        });
+        localStorage.removeItem("selectedPlan");
+      }
+      
+      setTimeout(() => {
+        navigate("/company");
+      }, 1500);
+    } else {
+      toast({
+        variant: "destructive",
+        title: "Registration Failed",
+        description: "There was an error creating your account. Please try again."
+      });
     }
     
-    navigate("/dashboard");
+    setIsLoading(false);
   };
 
   const handleInputChange = (field: string, value: string) => {
@@ -65,9 +106,10 @@ const Register = () => {
   };
 
   const handleSocialSignup = (provider: string) => {
-    console.log(`${provider} signup attempted`);
-    // In a real app, this would handle OAuth
-    alert(`${provider} signup would be handled here`);
+    toast({
+      title: "Coming Soon",
+      description: `${provider} signup will be available soon`
+    });
   };
 
   const passwordRequirements = [
@@ -78,26 +120,26 @@ const Register = () => {
   ];
 
   return (
-    <div className="min-h-screen bg-gray-50 flex items-center justify-center p-6">
+    <div className="min-h-screen bg-gradient-to-br from-emerald-50 via-white to-amber-50 flex items-center justify-center p-6">
       <div className="w-full max-w-md">
         {/* Logo */}
-        <div className="text-center mb-8">
+        <div className="text-center mb-8 animate-fade-in">
           <Link to="/" className="inline-flex items-center gap-2">
-            <div className="w-10 h-10 bg-blue-600 rounded-lg flex items-center justify-center">
+            <div className="w-10 h-10 bg-gradient-to-br from-emerald-600 to-amber-600 rounded-lg flex items-center justify-center">
               <Briefcase className="w-6 h-6 text-white" />
             </div>
-            <span className="text-2xl font-bold text-gray-900">ProjectHub</span>
+            <span className="text-2xl font-bold bg-gradient-to-r from-emerald-600 to-amber-600 bg-clip-text text-transparent">ProjectHub</span>
           </Link>
         </div>
 
-        <Card className="border-gray-200 shadow-sm">
-          <CardHeader className="text-center">
+        <Card className="border-0 shadow-xl bg-white/80 backdrop-blur-sm animate-fade-in" style={{animationDelay: "200ms"}}>
+          <CardHeader className="text-center bg-gradient-to-r from-emerald-50 to-amber-50 rounded-t-lg">
             <CardTitle className="text-2xl text-gray-900">Create your account</CardTitle>
             <CardDescription>
               Start your 14-day free trial today
             </CardDescription>
           </CardHeader>
-          <CardContent>
+          <CardContent className="p-6">
             <form onSubmit={handleSubmit} className="space-y-4">
               <div className="grid grid-cols-2 gap-3">
                 <div className="space-y-2">
@@ -109,7 +151,7 @@ const Register = () => {
                     value={formData.firstName}
                     onChange={(e) => handleInputChange("firstName", e.target.value)}
                     required
-                    className="border-gray-300"
+                    className="border-emerald-200 focus:border-emerald-500"
                   />
                 </div>
                 <div className="space-y-2">
@@ -121,7 +163,7 @@ const Register = () => {
                     value={formData.lastName}
                     onChange={(e) => handleInputChange("lastName", e.target.value)}
                     required
-                    className="border-gray-300"
+                    className="border-emerald-200 focus:border-emerald-500"
                   />
                 </div>
               </div>
@@ -135,7 +177,7 @@ const Register = () => {
                   value={formData.email}
                   onChange={(e) => handleInputChange("email", e.target.value)}
                   required
-                  className="border-gray-300"
+                  className="border-emerald-200 focus:border-emerald-500"
                 />
               </div>
 
@@ -148,7 +190,7 @@ const Register = () => {
                   value={formData.company}
                   onChange={(e) => handleInputChange("company", e.target.value)}
                   required
-                  className="border-gray-300"
+                  className="border-emerald-200 focus:border-emerald-500"
                 />
               </div>
               
@@ -162,7 +204,7 @@ const Register = () => {
                     value={formData.password}
                     onChange={(e) => handleInputChange("password", e.target.value)}
                     required
-                    className="border-gray-300 pr-10"
+                    className="border-emerald-200 focus:border-emerald-500 pr-10"
                   />
                   <Button
                     type="button"
@@ -186,10 +228,10 @@ const Register = () => {
                       <div key={index} className="flex items-center gap-2 text-xs">
                         <CheckCircle 
                           className={`w-3 h-3 ${
-                            req.met ? "text-green-600" : "text-gray-300"
+                            req.met ? "text-emerald-600" : "text-gray-300"
                           }`}
                         />
-                        <span className={req.met ? "text-green-600" : "text-gray-500"}>
+                        <span className={req.met ? "text-emerald-600" : "text-gray-500"}>
                           {req.text}
                         </span>
                       </div>
@@ -207,7 +249,7 @@ const Register = () => {
                   value={formData.confirmPassword}
                   onChange={(e) => handleInputChange("confirmPassword", e.target.value)}
                   required
-                  className="border-gray-300"
+                  className="border-emerald-200 focus:border-emerald-500"
                 />
                 {formData.confirmPassword && formData.password !== formData.confirmPassword && (
                   <p className="text-xs text-red-600">Passwords do not match</p>
@@ -221,15 +263,15 @@ const Register = () => {
                   checked={agreedToTerms}
                   onChange={(e) => setAgreedToTerms(e.target.checked)}
                   required
-                  className="w-4 h-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500 mt-0.5"
+                  className="w-4 h-4 text-emerald-600 border-gray-300 rounded focus:ring-emerald-500 mt-0.5"
                 />
                 <Label htmlFor="terms" className="text-sm text-gray-600 leading-relaxed">
                   I agree to the{" "}
-                  <Link to="/about" className="text-blue-600 hover:text-blue-700">
+                  <Link to="/about" className="text-emerald-600 hover:text-emerald-700">
                     Terms of Service
                   </Link>{" "}
                   and{" "}
-                  <Link to="/about" className="text-blue-600 hover:text-blue-700">
+                  <Link to="/about" className="text-emerald-600 hover:text-emerald-700">
                     Privacy Policy
                   </Link>
                 </Label>
@@ -237,10 +279,10 @@ const Register = () => {
 
               <Button 
                 type="submit" 
-                className="w-full bg-blue-600 hover:bg-blue-700"
-                disabled={formData.password !== formData.confirmPassword || !agreedToTerms}
+                className="w-full bg-emerald-600 hover:bg-emerald-700 shadow-lg hover:shadow-xl transition-all duration-300"
+                disabled={formData.password !== formData.confirmPassword || !agreedToTerms || isLoading}
               >
-                Create account
+                {isLoading ? "Creating account..." : "Create account"}
               </Button>
 
               <div className="relative">
@@ -256,7 +298,7 @@ const Register = () => {
                 <Button 
                   type="button"
                   variant="outline" 
-                  className="border-gray-300"
+                  className="border-emerald-300 hover:bg-emerald-50"
                   onClick={() => handleSocialSignup("Google")}
                 >
                   <svg className="w-4 h-4 mr-2" viewBox="0 0 24 24">
@@ -270,7 +312,7 @@ const Register = () => {
                 <Button 
                   type="button"
                   variant="outline" 
-                  className="border-gray-300"
+                  className="border-emerald-300 hover:bg-emerald-50"
                   onClick={() => handleSocialSignup("GitHub")}
                 >
                   <svg className="w-4 h-4 mr-2" fill="currentColor" viewBox="0 0 24 24">
@@ -283,14 +325,14 @@ const Register = () => {
 
             <div className="mt-6 text-center text-sm text-gray-600">
               Already have an account?{" "}
-              <Link to="/login" className="text-blue-600 hover:text-blue-700 font-medium">
+              <Link to="/login" className="text-emerald-600 hover:text-emerald-700 font-medium">
                 Sign in
               </Link>
             </div>
           </CardContent>
         </Card>
 
-        <div className="mt-8 text-center">
+        <div className="mt-8 text-center animate-fade-in" style={{animationDelay: "400ms"}}>
           <Link to="/" className="text-sm text-gray-500 hover:text-gray-700">
             ← Back to home
           </Link>

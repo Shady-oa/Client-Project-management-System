@@ -21,7 +21,8 @@ import {
   Shield,
   Building2,
   AlertCircle,
-  BarChart3
+  BarChart3,
+  LogOut
 } from "lucide-react";
 
 interface SidebarProps {
@@ -31,13 +32,13 @@ interface SidebarProps {
 const Sidebar = ({ className }: SidebarProps) => {
   const [collapsed, setCollapsed] = useState(false);
   const location = useLocation();
-  const { user, isAdmin, isCompany, isClient } = useUser();
+  const { user, isAdmin, isCompany, isClient, logout } = useUser();
 
   // Dynamic navigation based on user role
   const getNavigation = () => {
     if (isAdmin) {
       return [
-        { name: "Dashboard", href: "/dashboard", icon: Grid },
+        { name: "Dashboard", href: "/admin", icon: Grid },
         { name: "Companies", href: "/admin", icon: Building2 },
         { name: "All Projects", href: "/projects", icon: Briefcase },
         { name: "All Users", href: "/users", icon: Users },
@@ -47,7 +48,7 @@ const Sidebar = ({ className }: SidebarProps) => {
       ];
     } else if (isCompany) {
       return [
-        { name: "Dashboard", href: "/dashboard", icon: Grid },
+        { name: "Dashboard", href: "/company", icon: Grid },
         { name: "Projects", href: "/projects", icon: Briefcase },
         { name: "Kanban", href: "/kanban", icon: Archive },
         { name: "Team", href: "/users", icon: Users },
@@ -56,7 +57,7 @@ const Sidebar = ({ className }: SidebarProps) => {
       ];
     } else if (isClient) {
       return [
-        { name: "Dashboard", href: "/dashboard", icon: Grid },
+        { name: "Dashboard", href: "/client", icon: Grid },
         { name: "My Projects", href: "/projects", icon: Briefcase },
         { name: "Issues", href: "/issues", icon: AlertCircle },
         { name: "Support", href: "/contact", icon: Bell },
@@ -68,8 +69,8 @@ const Sidebar = ({ className }: SidebarProps) => {
   const navigation = getNavigation();
 
   const isActive = (href: string) => {
-    if (href === "/dashboard") {
-      return location.pathname === "/" || location.pathname === "/dashboard";
+    if (href === "/dashboard" || href === "/admin" || href === "/company" || href === "/client") {
+      return location.pathname === href || location.pathname === "/dashboard";
     }
     return location.pathname.startsWith(href);
   };
@@ -82,6 +83,11 @@ const Sidebar = ({ className }: SidebarProps) => {
   };
 
   const roleInfo = getRoleInfo();
+
+  const handleLogout = () => {
+    logout();
+    window.location.href = "/";
+  };
 
   return (
     <div className={cn(
@@ -185,30 +191,52 @@ const Sidebar = ({ className }: SidebarProps) => {
       {/* User Profile */}
       <div className="p-4 border-t border-emerald-200">
         {collapsed ? (
-          <Button variant="ghost" size="sm" className="w-full p-2">
-            <Avatar className="w-6 h-6">
-              <AvatarFallback className="bg-gradient-to-br from-emerald-400 to-amber-400 text-white text-xs">
-                {user?.name?.split(' ').map(n => n[0]).join('') || 'U'}
-              </AvatarFallback>
-            </Avatar>
-          </Button>
+          <div className="flex flex-col gap-2">
+            <Button variant="ghost" size="sm" className="w-full p-2">
+              <Avatar className="w-6 h-6">
+                <AvatarFallback className="bg-gradient-to-br from-emerald-400 to-amber-400 text-white text-xs">
+                  {user?.name?.split(' ').map(n => n[0]).join('') || 'U'}
+                </AvatarFallback>
+              </Avatar>
+            </Button>
+            <Button 
+              variant="ghost" 
+              size="sm" 
+              className="w-full p-2 hover:bg-red-50"
+              onClick={handleLogout}
+            >
+              <LogOut className="w-4 h-4 text-red-600" />
+            </Button>
+          </div>
         ) : (
-          <div className="flex items-center gap-3">
-            <Avatar className="w-8 h-8">
-              <AvatarFallback className="bg-gradient-to-br from-emerald-400 to-amber-400 text-white text-sm">
-                {user?.name?.split(' ').map(n => n[0]).join('') || 'U'}
-              </AvatarFallback>
-            </Avatar>
-            <div className="flex-1 min-w-0">
-              <p className="text-sm font-medium text-gray-900 truncate">
-                {user?.name || 'User'}
-              </p>
-              <p className="text-xs text-gray-500 truncate">
-                {user?.email || 'user@example.com'}
-              </p>
+          <div className="space-y-3">
+            <div className="flex items-center gap-3">
+              <Avatar className="w-8 h-8">
+                <AvatarFallback className="bg-gradient-to-br from-emerald-400 to-amber-400 text-white text-sm">
+                  {user?.name?.split(' ').map(n => n[0]).join('') || 'U'}
+                </AvatarFallback>
+              </Avatar>
+              <div className="flex-1 min-w-0">
+                <p className="text-sm font-medium text-gray-900 truncate">
+                  {user?.name || 'User'}
+                </p>
+                <p className="text-xs text-gray-500 truncate">
+                  {user?.email || 'user@example.com'}
+                </p>
+              </div>
+              <Button variant="ghost" size="sm" className="p-1 hover:bg-emerald-50">
+                <Settings className="w-4 h-4" />
+              </Button>
             </div>
-            <Button variant="ghost" size="sm" className="p-1 hover:bg-emerald-50">
-              <Settings className="w-4 h-4" />
+            
+            <Button 
+              variant="outline" 
+              size="sm" 
+              className="w-full text-red-600 border-red-200 hover:bg-red-50"
+              onClick={handleLogout}
+            >
+              <LogOut className="w-4 h-4 mr-2" />
+              Logout
             </Button>
           </div>
         )}
