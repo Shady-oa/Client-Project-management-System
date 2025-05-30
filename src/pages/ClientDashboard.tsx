@@ -1,5 +1,5 @@
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -7,79 +7,39 @@ import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Clock, AlertCircle, CheckCircle, MessageSquare, Download, Play, Plus } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { useUser } from "@/contexts/UserContext";
+import { useProjects } from "@/hooks/useProjects";
 
 const ClientDashboard = () => {
   const navigate = useNavigate();
   const { user } = useUser();
+  const { projects, loading } = useProjects();
 
-  const myProjects = [
+  // Filter projects for the current client
+  const myProjects = projects.filter(project => project.clientId === user?.id);
+
+  const [recentUpdates] = useState([
     {
       id: 1,
-      name: "E-commerce Platform Redesign",
-      company: "TechCraft Solutions",
-      status: "In Progress",
-      progress: 75,
-      dueDate: "2024-07-15",
-      lastUpdate: "2024-05-30",
-      budget: 850000,
-      spent: 637500,
-      phase: "Development",
-      nextMilestone: "Beta Testing"
-    },
-    {
-      id: 2,
-      name: "Mobile App Development",
-      company: "Digital Innovations",
-      status: "Testing",
-      progress: 90,
-      dueDate: "2024-06-20",
-      lastUpdate: "2024-05-29",
-      budget: 650000,
-      spent: 585000,
-      phase: "Quality Assurance",
-      nextMilestone: "App Store Submission"
-    }
-  ];
-
-  const recentUpdates = [
-    {
-      id: 1,
-      project: "E-commerce Platform",
-      message: "Payment gateway integration completed",
-      author: "Sarah Chen",
-      date: "2024-05-30",
+      project: "Recent Project Update",
+      message: "Latest progress on your projects",
+      author: "Project Manager",
+      date: new Date().toISOString().split('T')[0],
       type: "progress"
-    },
-    {
-      id: 2,
-      project: "Mobile App",
-      message: "Beta version ready for testing",
-      author: "Mike Johnson",
-      date: "2024-05-29",
-      type: "milestone"
-    },
-    {
-      id: 3,
-      project: "E-commerce Platform",
-      message: "UI design approved and implemented",
-      author: "Emma Davis",
-      date: "2024-05-28",
-      type: "approval"
     }
-  ];
+  ]);
 
   const stats = [
-    { title: "Active Projects", value: "2", icon: Clock, change: "On schedule", color: "bg-emerald-50 text-emerald-600" },
-    { title: "Total Investment", value: "KES 1.5M", icon: CheckCircle, change: "Within budget", color: "bg-blue-50 text-blue-600" },
-    { title: "Avg. Progress", value: "82%", icon: AlertCircle, change: "Ahead of timeline", color: "bg-amber-50 text-amber-600" },
-    { title: "Open Issues", value: "3", icon: MessageSquare, change: "Need attention", color: "bg-red-50 text-red-600" }
+    { title: "Active Projects", value: myProjects.filter(p => p.status === 'In Progress').length.toString(), icon: Clock, change: "On schedule", color: "bg-emerald-50 text-emerald-600" },
+    { title: "Total Investment", value: `KES ${myProjects.reduce((sum, p) => sum + p.budget, 0).toLocaleString()}`, icon: CheckCircle, change: "Within budget", color: "bg-blue-50 text-blue-600" },
+    { title: "Avg. Progress", value: `${Math.round(myProjects.reduce((sum, p) => sum + p.progress, 0) / Math.max(myProjects.length, 1))}%`, icon: AlertCircle, change: "Ahead of timeline", color: "bg-amber-50 text-amber-600" },
+    { title: "Completed Projects", value: myProjects.filter(p => p.status === 'Completed').length.toString(), icon: MessageSquare, change: "This quarter", color: "bg-green-50 text-green-600" }
   ];
 
-  const handleProjectClick = (projectId: number) => {
+  const handleProjectClick = (projectId: string) => {
     navigate(`/client/projects/${projectId}`);
   };
 
-  const handleTestProject = (projectId: number) => {
+  const handleTestProject = (projectId: string) => {
     alert(`Opening test environment for project ${projectId}`);
   };
 
@@ -92,6 +52,8 @@ const ClientDashboard = () => {
       case "In Progress": return "bg-blue-100 text-blue-800";
       case "Testing": return "bg-yellow-100 text-yellow-800";
       case "Completed": return "bg-green-100 text-green-800";
+      case "Planning": return "bg-purple-100 text-purple-800";
+      case "On Hold": return "bg-red-100 text-red-800";
       default: return "bg-gray-100 text-gray-800";
     }
   };
@@ -104,6 +66,17 @@ const ClientDashboard = () => {
       default: return "bg-gray-100 text-gray-800";
     }
   };
+
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-emerald-50 to-amber-50 flex items-center justify-center">
+        <div className="text-center">
+          <div className="w-8 h-8 animate-spin mx-auto mb-4 border-4 border-emerald-600 border-t-transparent rounded-full" />
+          <p className="text-gray-600">Loading dashboard...</p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-emerald-50 to-amber-50">
@@ -167,7 +140,7 @@ const ClientDashboard = () => {
               </CardHeader>
               <CardContent className="p-0">
                 <div className="divide-y divide-emerald-100">
-                  {myProjects.map((project, index) => (
+                  {myProjects.length > 0 ? myProjects.map((project, index) => (
                     <div 
                       key={project.id} 
                       className="p-6 hover:bg-emerald-50/50 transition-all duration-200 cursor-pointer animate-fade-in"
@@ -184,17 +157,17 @@ const ClientDashboard = () => {
                               {project.status}
                             </Badge>
                           </div>
-                          <p className="text-gray-600 mb-3">Developed by {project.company}</p>
+                          <p className="text-gray-600 mb-3">{project.description}</p>
                           
                           <div className="grid grid-cols-2 gap-4 text-sm text-gray-600 mb-4">
                             <div>
-                              <span className="font-medium">Current Phase:</span> {project.phase}
+                              <span className="font-medium">Current Phase:</span> {project.phase || 'Planning'}
                             </div>
                             <div>
-                              <span className="font-medium">Next Milestone:</span> {project.nextMilestone}
+                              <span className="font-medium">Next Milestone:</span> {project.nextMilestone || 'To be determined'}
                             </div>
                             <div>
-                              <span className="font-medium">Due Date:</span> {project.dueDate}
+                              <span className="font-medium">Due Date:</span> {project.dueDate || 'Not set'}
                             </div>
                             <div>
                               <span className="font-medium">Last Update:</span> {project.lastUpdate}
@@ -252,7 +225,13 @@ const ClientDashboard = () => {
                         </div>
                       </div>
                     </div>
-                  ))}
+                  )) : (
+                    <div className="p-12 text-center text-gray-500">
+                      <Clock className="w-12 h-12 mx-auto mb-4 text-gray-300" />
+                      <h3 className="text-lg font-medium mb-2">No projects yet</h3>
+                      <p className="text-sm">You don't have any active projects. Contact us to get started!</p>
+                    </div>
+                  )}
                 </div>
               </CardContent>
             </Card>

@@ -1,337 +1,204 @@
-import { useState } from "react";
-import { Link, useNavigate } from "react-router-dom";
+
+import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Briefcase, Eye, EyeOff, CheckCircle } from "lucide-react";
-import { useUser, UserRole } from "@/contexts/UserContext";
-import { useToast } from "@/hooks/use-toast";
+import { supabase } from "@/integrations/supabase/client";
+import { Link, useNavigate } from "react-router-dom";
+import { toast } from "sonner";
+
+interface Company {
+  id: string;
+  name: string;
+}
 
 const Register = () => {
   const navigate = useNavigate();
-  const { register, loading } = useUser();
-  const { toast } = useToast();
-  const [showPassword, setShowPassword] = useState(false);
+  const [loading, setLoading] = useState(false);
+  const [companies, setCompanies] = useState<Company[]>([]);
   const [formData, setFormData] = useState({
-    firstName: "",
-    lastName: "",
     email: "",
-    company: "",
     password: "",
-    confirmPassword: "",
-    role: "company" as UserRole
+    fullName: "",
+    role: "client",
+    companyId: "",
+    phone: ""
   });
-  const [agreedToTerms, setAgreedToTerms] = useState(false);
+
+  const fetchCompanies = async () => {
+    try {
+      // For now, we'll use predefined companies. In a real system, 
+      // these would be fetched from a companies table
+      const predefinedCompanies = [
+        { id: "catech", name: "CATECH" },
+        { id: "innovatecorp", name: "InnovateCorp" },
+        { id: "digitalsolutions", name: "DigitalSolutions" },
+        { id: "techforward", name: "TechForward" }
+      ];
+      setCompanies(predefinedCompanies);
+    } catch (error) {
+      console.error('Error fetching companies:', error);
+    }
+  };
+
+  useEffect(() => {
+    fetchCompanies();
+  }, []);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
-    // Validation
-    if (!formData.firstName || !formData.lastName || !formData.email || !formData.password) {
-      toast({
-        variant: "destructive",
-        title: "Error",
-        description: "Please fill in all required fields"
-      });
+    if (!formData.email || !formData.password || !formData.fullName) {
+      toast.error("Please fill in all required fields");
       return;
     }
-    
-    if (formData.password !== formData.confirmPassword) {
-      toast({
-        variant: "destructive",
-        title: "Error",
-        description: "Passwords do not match"
-      });
+
+    if (formData.role === "client" && !formData.companyId) {
+      toast.error("Please select a company");
       return;
     }
-    
-    if (!agreedToTerms) {
-      toast({
-        variant: "destructive",
-        title: "Error",
-        description: "Please agree to the Terms of Service and Privacy Policy"
+
+    setLoading(true);
+
+    try {
+      const { data, error } = await supabase.auth.signUp({
+        email: formData.email,
+        password: formData.password,
+        options: {
+          data: {
+            full_name: formData.fullName,
+            role: formData.role,
+            company_id: formData.role === "client" ? formData.companyId : "",
+            phone: formData.phone
+          }
+        }
       });
-      return;
-    }
-    
-    const fullName = `${formData.firstName} ${formData.lastName}`;
-    const companyId = formData.role === 'company' ? `${formData.company.toLowerCase().replace(/\s+/g, '-')}-${Date.now()}` : undefined;
-    
-    const success = await register(formData.email, formData.password, {
-      fullName,
-      role: formData.role,
-      companyName: formData.company,
-      companyId
-    });
-    
-    if (success) {
-      toast({
-        title: "Success",
-        description: "Account created successfully! Please check your email to verify your account."
-      });
-      
-      setTimeout(() => {
+
+      if (error) throw error;
+
+      if (data.user) {
+        toast.success("Registration successful! Please check your email to verify your account.");
         navigate("/login");
-      }, 2000);
+      }
+    } catch (error: any) {
+      toast.error(error.message || "An error occurred during registration");
+    } finally {
+      setLoading(false);
     }
   };
-
-  const handleInputChange = (field: string, value: string) => {
-    setFormData(prev => ({
-      ...prev,
-      [field]: value
-    }));
-  };
-
-  const handleSocialSignup = (provider: string) => {
-    toast({
-      title: "Coming Soon",
-      description: `${provider} signup will be available soon`
-    });
-  };
-
-  const passwordRequirements = [
-    { text: "At least 8 characters", met: formData.password.length >= 8 },
-    { text: "Contains uppercase letter", met: /[A-Z]/.test(formData.password) },
-    { text: "Contains lowercase letter", met: /[a-z]/.test(formData.password) },
-    { text: "Contains number", met: /\d/.test(formData.password) }
-  ];
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-emerald-50 via-white to-amber-50 flex items-center justify-center p-6">
-      <div className="w-full max-w-md">
-        {/* Logo */}
-        <div className="text-center mb-8 animate-fade-in">
-          <Link to="/" className="inline-flex items-center gap-2">
-            <div className="w-10 h-10 bg-gradient-to-br from-emerald-600 to-amber-600 rounded-lg flex items-center justify-center">
-              <Briefcase className="w-6 h-6 text-white" />
+    <div className="min-h-screen bg-gradient-to-br from-emerald-50 to-amber-50 flex items-center justify-center p-4">
+      <Card className="w-full max-w-md shadow-xl border-0 bg-white/80 backdrop-blur-sm">
+        <CardHeader className="text-center">
+          <CardTitle className="text-2xl font-bold bg-gradient-to-r from-emerald-600 to-amber-600 bg-clip-text text-transparent">
+            Create Account
+          </CardTitle>
+          <CardDescription>
+            Join our project management platform
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <form onSubmit={handleSubmit} className="space-y-4">
+            <div className="space-y-2">
+              <Label htmlFor="fullName">Full Name *</Label>
+              <Input
+                id="fullName"
+                type="text"
+                value={formData.fullName}
+                onChange={(e) => setFormData({ ...formData, fullName: e.target.value })}
+                placeholder="Enter your full name"
+                required
+              />
             </div>
-            <span className="text-2xl font-bold bg-gradient-to-r from-emerald-600 to-amber-600 bg-clip-text text-transparent">ProjectHub</span>
-          </Link>
-        </div>
 
-        <Card className="border-0 shadow-xl bg-white/80 backdrop-blur-sm animate-fade-in" style={{animationDelay: "200ms"}}>
-          <CardHeader className="text-center bg-gradient-to-r from-emerald-50 to-amber-50 rounded-t-lg">
-            <CardTitle className="text-2xl text-gray-900">Create your account</CardTitle>
-            <CardDescription>
-              Join ProjectHub and start managing your projects
-            </CardDescription>
-          </CardHeader>
-          <CardContent className="p-6">
-            <form onSubmit={handleSubmit} className="space-y-4">
-              <div className="grid grid-cols-2 gap-3">
-                <div className="space-y-2">
-                  <Label htmlFor="firstName">First name</Label>
-                  <Input
-                    id="firstName"
-                    type="text"
-                    placeholder="John"
-                    value={formData.firstName}
-                    onChange={(e) => handleInputChange("firstName", e.target.value)}
-                    required
-                    className="border-emerald-200 focus:border-emerald-500"
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="lastName">Last name</Label>
-                  <Input
-                    id="lastName"
-                    type="text"
-                    placeholder="Doe"
-                    value={formData.lastName}
-                    onChange={(e) => handleInputChange("lastName", e.target.value)}
-                    required
-                    className="border-emerald-200 focus:border-emerald-500"
-                  />
-                </div>
-              </div>
+            <div className="space-y-2">
+              <Label htmlFor="email">Email *</Label>
+              <Input
+                id="email"
+                type="email"
+                value={formData.email}
+                onChange={(e) => setFormData({ ...formData, email: e.target.value })}
+                placeholder="Enter your email"
+                required
+              />
+            </div>
 
+            <div className="space-y-2">
+              <Label htmlFor="phone">Phone Number</Label>
+              <Input
+                id="phone"
+                type="tel"
+                value={formData.phone}
+                onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
+                placeholder="Enter your phone number"
+              />
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="role">Role *</Label>
+              <Select value={formData.role} onValueChange={(value) => setFormData({ ...formData, role: value })}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Select your role" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="client">Client</SelectItem>
+                  <SelectItem value="company">Company User</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+
+            {formData.role === "client" && (
               <div className="space-y-2">
-                <Label htmlFor="email">Work email</Label>
-                <Input
-                  id="email"
-                  type="email"
-                  placeholder="you@company.com"
-                  value={formData.email}
-                  onChange={(e) => handleInputChange("email", e.target.value)}
-                  required
-                  className="border-emerald-200 focus:border-emerald-500"
-                />
-              </div>
-
-              <div className="space-y-2">
-                <Label htmlFor="role">Account Type</Label>
-                <Select value={formData.role} onValueChange={(value: UserRole) => handleInputChange("role", value)}>
-                  <SelectTrigger className="border-emerald-200 focus:border-emerald-500">
-                    <SelectValue placeholder="Select your role" />
+                <Label htmlFor="company">Select Company *</Label>
+                <Select value={formData.companyId} onValueChange={(value) => setFormData({ ...formData, companyId: value })}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Choose a company" />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="company">Company Manager</SelectItem>
-                    <SelectItem value="client">Client</SelectItem>
+                    {companies.map((company) => (
+                      <SelectItem key={company.id} value={company.id}>
+                        {company.name}
+                      </SelectItem>
+                    ))}
                   </SelectContent>
                 </Select>
               </div>
+            )}
 
-              <div className="space-y-2">
-                <Label htmlFor="company">Company name</Label>
-                <Input
-                  id="company"
-                  type="text"
-                  placeholder="Your Company Inc."
-                  value={formData.company}
-                  onChange={(e) => handleInputChange("company", e.target.value)}
-                  required
-                  className="border-emerald-200 focus:border-emerald-500"
-                />
-              </div>
-              
-              <div className="space-y-2">
-                <Label htmlFor="password">Password</Label>
-                <div className="relative">
-                  <Input
-                    id="password"
-                    type={showPassword ? "text" : "password"}
-                    placeholder="Create a strong password"
-                    value={formData.password}
-                    onChange={(e) => handleInputChange("password", e.target.value)}
-                    required
-                    className="border-emerald-200 focus:border-emerald-500 pr-10"
-                  />
-                  <Button
-                    type="button"
-                    variant="ghost"
-                    size="sm"
-                    className="absolute right-2 top-1/2 transform -translate-y-1/2 h-7 w-7 p-0"
-                    onClick={() => setShowPassword(!showPassword)}
-                  >
-                    {showPassword ? (
-                      <EyeOff className="w-4 h-4 text-gray-500" />
-                    ) : (
-                      <Eye className="w-4 h-4 text-gray-500" />
-                    )}
-                  </Button>
-                </div>
-                
-                {/* Password Requirements */}
-                {formData.password && (
-                  <div className="space-y-1 mt-2">
-                    {passwordRequirements.map((req, index) => (
-                      <div key={index} className="flex items-center gap-2 text-xs">
-                        <CheckCircle 
-                          className={`w-3 h-3 ${
-                            req.met ? "text-emerald-600" : "text-gray-300"
-                          }`}
-                        />
-                        <span className={req.met ? "text-emerald-600" : "text-gray-500"}>
-                          {req.text}
-                        </span>
-                      </div>
-                    ))}
-                  </div>
-                )}
-              </div>
+            <div className="space-y-2">
+              <Label htmlFor="password">Password *</Label>
+              <Input
+                id="password"
+                type="password"
+                value={formData.password}
+                onChange={(e) => setFormData({ ...formData, password: e.target.value })}
+                placeholder="Create a password"
+                required
+              />
+            </div>
 
-              <div className="space-y-2">
-                <Label htmlFor="confirmPassword">Confirm password</Label>
-                <Input
-                  id="confirmPassword"
-                  type="password"
-                  placeholder="Confirm your password"
-                  value={formData.confirmPassword}
-                  onChange={(e) => handleInputChange("confirmPassword", e.target.value)}
-                  required
-                  className="border-emerald-200 focus:border-emerald-500"
-                />
-                {formData.confirmPassword && formData.password !== formData.confirmPassword && (
-                  <p className="text-xs text-red-600">Passwords do not match</p>
-                )}
-              </div>
+            <Button 
+              type="submit" 
+              className="w-full bg-emerald-600 hover:bg-emerald-700" 
+              disabled={loading}
+            >
+              {loading ? "Creating Account..." : "Create Account"}
+            </Button>
+          </form>
 
-              <div className="flex items-start space-x-2">
-                <input
-                  id="terms"
-                  type="checkbox"
-                  checked={agreedToTerms}
-                  onChange={(e) => setAgreedToTerms(e.target.checked)}
-                  required
-                  className="w-4 h-4 text-emerald-600 border-gray-300 rounded focus:ring-emerald-500 mt-0.5"
-                />
-                <Label htmlFor="terms" className="text-sm text-gray-600 leading-relaxed">
-                  I agree to the{" "}
-                  <Link to="/about" className="text-emerald-600 hover:text-emerald-700">
-                    Terms of Service
-                  </Link>{" "}
-                  and{" "}
-                  <Link to="/about" className="text-emerald-600 hover:text-emerald-700">
-                    Privacy Policy
-                  </Link>
-                </Label>
-              </div>
-
-              <Button 
-                type="submit" 
-                className="w-full bg-emerald-600 hover:bg-emerald-700 shadow-lg hover:shadow-xl transition-all duration-300"
-                disabled={formData.password !== formData.confirmPassword || !agreedToTerms || loading}
-              >
-                {loading ? "Creating account..." : "Create account"}
-              </Button>
-
-              {/* ... keep existing code (social signup buttons) */}
-              <div className="relative">
-                <div className="absolute inset-0 flex items-center">
-                  <span className="w-full border-t border-gray-300" />
-                </div>
-                <div className="relative flex justify-center text-xs uppercase">
-                  <span className="bg-white px-2 text-gray-500">Or continue with</span>
-                </div>
-              </div>
-
-              <div className="grid grid-cols-2 gap-3">
-                <Button 
-                  type="button"
-                  variant="outline" 
-                  className="border-emerald-300 hover:bg-emerald-50"
-                  onClick={() => handleSocialSignup("Google")}
-                >
-                  <svg className="w-4 h-4 mr-2" viewBox="0 0 24 24">
-                    <path fill="currentColor" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/>
-                    <path fill="currentColor" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/>
-                    <path fill="currentColor" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z"/>
-                    <path fill="currentColor" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"/>
-                  </svg>
-                  Google
-                </Button>
-                <Button 
-                  type="button"
-                  variant="outline" 
-                  className="border-emerald-300 hover:bg-emerald-50"
-                  onClick={() => handleSocialSignup("GitHub")}
-                >
-                  <svg className="w-4 h-4 mr-2" fill="currentColor" viewBox="0 0 24 24">
-                    <path d="M12.017 0C5.396 0 .029 5.367.029 11.987c0 5.079 3.158 9.417 7.618 11.024-.105-.949-.199-2.403.042-3.44.219-.937 1.404-5.965 1.404-5.965s-.359-.719-.359-1.782c0-1.668.967-2.914 2.171-2.914 1.023 0 1.518.769 1.518 1.69 0 1.029-.655 2.568-.994 3.995-.283 1.194.599 2.169 1.777 2.169 2.133 0 3.772-2.249 3.772-5.495 0-2.873-2.064-4.882-5.012-4.882-3.414 0-5.418 2.561-5.418 5.207 0 1.031.397 2.138.893 2.738a.36.36 0 01.083.345l-.333 1.36c-.053.22-.174.267-.402.161-1.499-.698-2.436-2.889-2.436-4.649 0-3.785 2.75-7.262 7.929-7.262 4.163 0 7.398 2.967 7.398 6.931 0 4.136-2.607 7.464-6.227 7.464-1.216 0-2.357-.631-2.75-1.378l-.748 2.853c-.271 1.043-1.002 2.35-1.492 3.146C9.57 23.812 10.763 24.009 12.017 24c6.624 0 11.99-5.367 11.99-11.987C24.007 5.367 18.641.001.017 0z"/>
-                  </svg>
-                  GitHub
-                </Button>
-              </div>
-            </form>
-
-            <div className="mt-6 text-center text-sm text-gray-600">
+          <div className="mt-6 text-center">
+            <p className="text-sm text-gray-600">
               Already have an account?{" "}
               <Link to="/login" className="text-emerald-600 hover:text-emerald-700 font-medium">
                 Sign in
               </Link>
-            </div>
-          </CardContent>
-        </Card>
-
-        <div className="mt-8 text-center animate-fade-in" style={{animationDelay: "400ms"}}>
-          <Link to="/" className="text-sm text-gray-500 hover:text-gray-700">
-            ← Back to home
-          </Link>
-        </div>
-      </div>
+            </p>
+          </div>
+        </CardContent>
+      </Card>
     </div>
   );
 };

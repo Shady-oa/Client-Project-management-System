@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from "react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -139,11 +140,43 @@ const Issues = () => {
       }));
     } catch (error) {
       console.error('Error fetching comments:', error);
+      // Fallback: fetch without profiles join
+      try {
+        const { data, error: fallbackError } = await supabase
+          .from('issue_comments')
+          .select('*')
+          .eq('issue_id', issueId)
+          .order('created_at', { ascending: true });
+
+        if (fallbackError) throw fallbackError;
+
+        const formattedComments: IssueComment[] = data.map(comment => ({
+          id: comment.id,
+          issueId: comment.issue_id,
+          userId: comment.user_id,
+          content: comment.content,
+          createdAt: comment.created_at,
+          userName: 'User'
+        }));
+
+        setComments(prev => ({
+          ...prev,
+          [issueId]: formattedComments
+        }));
+      } catch (fallbackError) {
+        console.error('Error in fallback fetch:', fallbackError);
+      }
     }
   };
 
   const createIssue = async () => {
     if (!user || !newIssue.title || !newIssue.description || !newIssue.project) return;
+
+    // Only clients can create issues
+    if (!isClient) {
+      toast.error('Only clients can create issues');
+      return;
+    }
 
     try {
       const { error } = await supabase
@@ -154,7 +187,6 @@ const Issues = () => {
           status: 'Open',
           priority: newIssue.priority,
           project_id: newIssue.project,
-          assigned_to: newIssue.assignee || null,
           created_by: user.id,
           labels: newIssue.labels.split(',').map(l => l.trim()).filter(l => l)
         });
@@ -179,8 +211,9 @@ const Issues = () => {
   };
 
   const updateIssueStatus = async (issueId: string, newStatus: string) => {
-    if (isClient) {
-      toast.error('Clients cannot change issue status');
+    // Only company users can change issue status
+    if (!isCompany && !isAdmin) {
+      toast.error('Only company users can change issue status');
       return;
     }
 
@@ -258,10 +291,6 @@ const Issues = () => {
     }
   };
 
-  const getTypeIcon = (type: string) => {
-    return <Bug className="w-4 h-4 text-red-500" />;
-  };
-
   const getPriorityColor = (priority: string) => {
     switch (priority) {
       case "Critical": return "bg-red-100 text-red-800 border-red-200";
@@ -294,106 +323,93 @@ const Issues = () => {
           <div className="flex justify-between items-start mb-6">
             <div>
               <h1 className="text-3xl font-bold text-gray-900">Issues</h1>
-              <p className="text-gray-600 mt-1">Track and manage project issues</p>
+              <p className="text-gray-600 mt-1">
+                {isClient ? "View and track your project issues" : "Manage client issues and provide support"}
+              </p>
             </div>
             <div className="flex gap-3">
-              <Dialog open={isNewIssueOpen} onOpenChange={setIsNewIssueOpen}>
-                <DialogTrigger asChild>
-                  <Button className="bg-blue-600 hover:bg-blue-700">
-                    <Plus className="w-4 h-4 mr-2" />
-                    New Issue
-                  </Button>
-                </DialogTrigger>
-                <DialogContent className="sm:max-w-[425px]">
-                  <DialogHeader>
-                    <DialogTitle>Create New Issue</DialogTitle>
-                    <DialogDescription>
-                      Report a bug, request a feature, or create an improvement
-                    </DialogDescription>
-                  </DialogHeader>
-                  <div className="grid gap-4 py-4">
-                    <div className="grid gap-2">
-                      <Label htmlFor="title">Title</Label>
-                      <Input
-                        id="title"
-                        value={newIssue.title}
-                        onChange={(e) => setNewIssue({...newIssue, title: e.target.value})}
-                        placeholder="Issue title"
-                      />
-                    </div>
-                    <div className="grid gap-2">
-                      <Label htmlFor="description">Description</Label>
-                      <Textarea
-                        id="description"
-                        value={newIssue.description}
-                        onChange={(e) => setNewIssue({...newIssue, description: e.target.value})}
-                        placeholder="Describe the issue in detail"
-                      />
-                    </div>
-                    <div className="grid gap-2">
-                      <Label htmlFor="project">Project</Label>
-                      <Select value={newIssue.project} onValueChange={(value) => setNewIssue({...newIssue, project: value})}>
-                        <SelectTrigger>
-                          <SelectValue placeholder="Select project" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {projects.map((project) => (
-                            <SelectItem key={project.id} value={project.id}>
-                              {project.name}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                    </div>
-                    <div className="grid gap-2">
-                      <Label htmlFor="priority">Priority</Label>
-                      <Select value={newIssue.priority} onValueChange={(value) => setNewIssue({...newIssue, priority: value})}>
-                        <SelectTrigger>
-                          <SelectValue />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="Low">Low</SelectItem>
-                          <SelectItem value="Medium">Medium</SelectItem>
-                          <SelectItem value="High">High</SelectItem>
-                          <SelectItem value="Critical">Critical</SelectItem>
-                        </SelectContent>
-                      </Select>
-                    </div>
-                    {(isCompany || isAdmin) && (
+              {isClient && (
+                <Dialog open={isNewIssueOpen} onOpenChange={setIsNewIssueOpen}>
+                  <DialogTrigger asChild>
+                    <Button className="bg-blue-600 hover:bg-blue-700">
+                      <Plus className="w-4 h-4 mr-2" />
+                      New Issue
+                    </Button>
+                  </DialogTrigger>
+                  <DialogContent className="sm:max-w-[425px]">
+                    <DialogHeader>
+                      <DialogTitle>Create New Issue</DialogTitle>
+                      <DialogDescription>
+                        Report a bug, request a feature, or create an improvement
+                      </DialogDescription>
+                    </DialogHeader>
+                    <div className="grid gap-4 py-4">
                       <div className="grid gap-2">
-                        <Label htmlFor="assignee">Assignee</Label>
-                        <Select value={newIssue.assignee} onValueChange={(value) => setNewIssue({...newIssue, assignee: value})}>
+                        <Label htmlFor="title">Title</Label>
+                        <Input
+                          id="title"
+                          value={newIssue.title}
+                          onChange={(e) => setNewIssue({...newIssue, title: e.target.value})}
+                          placeholder="Issue title"
+                        />
+                      </div>
+                      <div className="grid gap-2">
+                        <Label htmlFor="description">Description</Label>
+                        <Textarea
+                          id="description"
+                          value={newIssue.description}
+                          onChange={(e) => setNewIssue({...newIssue, description: e.target.value})}
+                          placeholder="Describe the issue in detail"
+                        />
+                      </div>
+                      <div className="grid gap-2">
+                        <Label htmlFor="project">Project</Label>
+                        <Select value={newIssue.project} onValueChange={(value) => setNewIssue({...newIssue, project: value})}>
                           <SelectTrigger>
-                            <SelectValue placeholder="Select assignee" />
+                            <SelectValue placeholder="Select project" />
                           </SelectTrigger>
                           <SelectContent>
-                            {teamMembers.map((member) => (
-                              <SelectItem key={member.id} value={member.id}>
-                                {member.name}
+                            {projects.map((project) => (
+                              <SelectItem key={project.id} value={project.id}>
+                                {project.name}
                               </SelectItem>
                             ))}
                           </SelectContent>
                         </Select>
                       </div>
-                    )}
-                    <div className="grid gap-2">
-                      <Label htmlFor="labels">Labels (comma separated)</Label>
-                      <Input
-                        id="labels"
-                        value={newIssue.labels}
-                        onChange={(e) => setNewIssue({...newIssue, labels: e.target.value})}
-                        placeholder="frontend, urgent, etc."
-                      />
+                      <div className="grid gap-2">
+                        <Label htmlFor="priority">Priority</Label>
+                        <Select value={newIssue.priority} onValueChange={(value) => setNewIssue({...newIssue, priority: value})}>
+                          <SelectTrigger>
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="Low">Low</SelectItem>
+                            <SelectItem value="Medium">Medium</SelectItem>
+                            <SelectItem value="High">High</SelectItem>
+                            <SelectItem value="Critical">Critical</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </div>
+                      <div className="grid gap-2">
+                        <Label htmlFor="labels">Labels (comma separated)</Label>
+                        <Input
+                          id="labels"
+                          value={newIssue.labels}
+                          onChange={(e) => setNewIssue({...newIssue, labels: e.target.value})}
+                          placeholder="frontend, urgent, etc."
+                        />
+                      </div>
                     </div>
-                  </div>
-                  <div className="flex justify-end gap-3">
-                    <Button variant="outline" onClick={() => setIsNewIssueOpen(false)}>
-                      Cancel
-                    </Button>
-                    <Button onClick={createIssue}>Create Issue</Button>
-                  </div>
-                </DialogContent>
-              </Dialog>
+                    <div className="flex justify-end gap-3">
+                      <Button variant="outline" onClick={() => setIsNewIssueOpen(false)}>
+                        Cancel
+                      </Button>
+                      <Button onClick={createIssue}>Create Issue</Button>
+                    </div>
+                  </DialogContent>
+                </Dialog>
+              )}
             </div>
           </div>
 
@@ -450,7 +466,7 @@ const Issues = () => {
                         <div className="flex items-center gap-3 mb-2">
                           <div className="flex items-center gap-2">
                             {getStatusIcon(issue.status)}
-                            {getTypeIcon("Bug")}
+                            <Bug className="w-4 h-4 text-red-500" />
                           </div>
                           <span className="text-sm font-mono text-gray-500">{issue.id.slice(0, 8)}</span>
                           <h3 className="font-semibold text-gray-900 hover:text-blue-600">{issue.title}</h3>
@@ -513,7 +529,7 @@ const Issues = () => {
                         <div className="text-sm text-gray-500">
                           Updated {new Date(issue.updatedAt).toLocaleDateString()}
                         </div>
-                        {!isClient && (
+                        {(isCompany || isAdmin) && (
                           <Select 
                             value={issue.status} 
                             onValueChange={(value) => updateIssueStatus(issue.id, value)}
