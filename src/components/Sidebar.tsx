@@ -7,7 +7,8 @@ import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { useUser } from "@/contexts/UserContext";
-import { useProject } from "@/contexts/ProjectContext";
+import { useProjects } from "@/hooks/useProjects";
+import { useTeamMembers } from "@/hooks/useTeamMembers";
 import { 
   Briefcase, 
   Users, 
@@ -34,17 +35,8 @@ const Sidebar = ({ className }: SidebarProps) => {
   const [collapsed, setCollapsed] = useState(false);
   const location = useLocation();
   const { user, isAdmin, isCompany, isClient, logout } = useUser();
-  const { 
-    getProjectsByRole, 
-    getTeamMembersByRole, 
-    getIssuesByRole,
-    notifications 
-  } = useProject();
-
-  const projects = getProjectsByRole();
-  const teamMembers = getTeamMembersByRole();
-  const issues = getIssuesByRole();
-  const unreadNotifications = notifications.filter(n => !n.read);
+  const { projects } = useProjects();
+  const { teamMembers } = useTeamMembers();
 
   // Dynamic navigation based on user role
   const getNavigation = () => {
@@ -106,19 +98,19 @@ const Sidebar = ({ className }: SidebarProps) => {
       return {
         stat1: { label: "Total Companies", value: "156" },
         stat2: { label: "Active Users", value: "2,847" },
-        stat3: { label: "Support Tickets", value: unreadNotifications.length.toString() }
+        stat3: { label: "Support Tickets", value: "12" }
       };
     } else if (isCompany) {
       return {
         stat1: { label: "Active Projects", value: projects.filter(p => p.status === 'In Progress').length.toString() },
         stat2: { label: "Team Members", value: teamMembers.filter(m => m.status === 'Active').length.toString() },
-        stat3: { label: "Open Issues", value: issues.filter(i => i.status === 'Open').length.toString() }
+        stat3: { label: "Open Issues", value: "5" }
       };
     } else {
       return {
         stat1: { label: "My Projects", value: projects.length.toString() },
-        stat2: { label: "Open Issues", value: issues.filter(i => i.status === 'Open').length.toString() },
-        stat3: { label: "Notifications", value: unreadNotifications.length.toString() }
+        stat2: { label: "Open Issues", value: "2" },
+        stat3: { label: "Notifications", value: "3" }
       };
     }
   };
@@ -164,11 +156,6 @@ const Sidebar = ({ className }: SidebarProps) => {
           <div className="flex items-center gap-2 p-2 bg-gradient-to-r from-emerald-50 to-amber-50 rounded-lg">
             <roleInfo.icon className={`w-4 h-4 ${roleInfo.color}`} />
             <span className="text-sm font-medium text-gray-700">{roleInfo.label}</span>
-            {unreadNotifications.length > 0 && (
-              <Badge variant="destructive" className="ml-auto text-xs h-5 px-1">
-                {unreadNotifications.length}
-              </Badge>
-            )}
           </div>
         </div>
       )}

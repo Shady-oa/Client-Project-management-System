@@ -3,30 +3,57 @@ import { useState, useEffect } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { Briefcase, Users, Clock, CheckCircle, Plus, Settings, User, Filter, Bell } from "lucide-react";
+import { Avatar, AvatarFallback } from "@/components/ui/avatar";
+import { Briefcase, Users, Clock, CheckCircle, Plus, Settings, User, Bell, Edit } from "lucide-react";
 import { Link, useNavigate } from "react-router-dom";
 import { useUser } from "@/contexts/UserContext";
-import { useProject } from "@/contexts/ProjectContext";
+import { useProjects } from "@/hooks/useProjects";
+import { useTeamMembers } from "@/hooks/useTeamMembers";
+import { TeamMemberDialog } from "@/components/TeamMemberDialog";
 import NotificationToast from "@/components/NotificationToast";
+import { supabase } from "@/integrations/supabase/client";
+import { toast } from "sonner";
 
 const CompanyDashboard = () => {
   const navigate = useNavigate();
   const { user } = useUser();
+  const { projects, loading: projectsLoading } = useProjects();
   const { 
-    getProjectsByRole, 
-    getTeamMembersByRole, 
-    getIssuesByRole,
-    notifications,
-    loading 
-  } = useProject();
+    teamMembers, 
+    loading: membersLoading, 
+    addTeamMember, 
+    updateTeamMember, 
+    deleteTeamMember, 
+    deactivateTeamMember 
+  } = useTeamMembers();
   
-  const [selectedFilter, setSelectedFilter] = useState("all");
+  const [notifications, setNotifications] = useState([]);
+  const [selectedMember, setSelectedMember] = useState(null);
+  const [isTeamDialogOpen, setIsTeamDialogOpen] = useState(false);
 
-  const projects = getProjectsByRole();
-  const teamMembers = getTeamMembersByRole();
-  const issues = getIssuesByRole();
-  const unreadNotifications = notifications.filter(n => !n.read);
+  const fetchNotifications = async () => {
+    if (!user) return;
+
+    try {
+      const { data, error } = await supabase
+        .from('notifications')
+        .select('*')
+        .eq('user_id', user.id)
+        .eq('read', false)
+        .order('created_at', { ascending: false });
+
+      if (error) throw error;
+      setNotifications(data || []);
+    } catch (error) {
+      console.error('Error fetching notifications:', error);
+    }
+  };
+
+  useEffect(() => {
+    if (user) {
+      fetchNotifications();
+    }
+  }, [user]);
 
   const stats = [
     { 
@@ -67,6 +94,36 @@ const CompanyDashboard = () => {
     navigate(`/projects/${projectId}`);
   };
 
+  const handleEditMember = (member) => {
+    setSelectedMember(member);
+    setIsTeamDialogOpen(true);
+  };
+
+  const handleAddMember = () => {
+    setSelectedMember(null);
+    setIsTeamDialogOpen(true);
+  };
+
+  const handleSaveMember = async (memberData) => {
+    try {
+      if (selectedMember) {
+        await updateTeamMember(selectedMember.id, memberData);
+      } else {
+        await addTeamMember({
+          ...memberData,
+          avatar: memberData.name.split(' ').map(n => n[0]).join(''),
+          projects: [],
+          permissions: ['read'],
+          hireDate: new Date().toISOString().split('T')[0]
+        });
+      }
+      setIsTeamDialogOpen(false);
+      setSelectedMember(null);
+    } catch (error) {
+      toast.error('Failed to save team member');
+    }
+  };
+
   const getStatusColor = (status: string) => {
     switch (status) {
       case "In Progress": return "bg-blue-100 text-blue-800";
@@ -88,7 +145,7 @@ const CompanyDashboard = () => {
     }
   };
 
-  if (loading) {
+  if (projectsLoading || membersLoading) {
     return (
       <div className="min-h-screen bg-gradient-to-br from-emerald-50 to-amber-50 flex items-center justify-center">
         <div className="text-center">
@@ -111,11 +168,11 @@ const CompanyDashboard = () => {
                 Company Dashboard
               </h1>
               <p className="text-gray-600 mt-2">Welcome back to {user?.companyName || "Your Company"}</p>
-              {unreadNotifications.length > 0 && (
+              {notifications.length > 0 && (
                 <div className="flex items-center gap-2 mt-2">
                   <Bell className="w-4 h-4 text-amber-600" />
                   <span className="text-sm text-amber-600">
-                    You have {unreadNotifications.length} unread notifications
+                    You have {notifications.length} unread notifications
                   </span>
                 </div>
               )}
@@ -269,13 +326,25 @@ const CompanyDashboard = () => {
           <div>
             <Card className="border-0 shadow-xl bg-white/80 backdrop-blur-sm">
               <CardHeader className="border-b border-emerald-100 bg-gradient-to-r from-emerald-50 to-amber-50">
-                <CardTitle className="text-xl text-emerald-700">Team Members</CardTitle>
-                <CardDescription>Your project team</CardDescription>
+                <div className="flex justify-between items-center">
+                  <div>
+                    <CardTitle className="text-xl text-emerald-700">Team Members</CardTitle>
+                    <CardDescription>Your project team</CardDescription>
+                  </div>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={handleAddMember}
+                    className="border-emerald-300 hover:bg-emerald-50"
+                  >
+                    <Plus className="w-4 h-4" />
+                  </Button>
+                </div>
               </CardHeader>
               <CardContent className="p-6">
                 <div className="space-y-4">
                   {teamMembers.filter(m => m.status === 'Active').slice(0, 5).map((member, index) => (
-                    <div key={member.id} className="flex items-center gap-3 p-3 rounded-lg hover:bg-emerald-50 transition-all duration-200 cursor-pointer animate-fade-in" style={{animationDelay: `${index * 100}ms`}}>
+                    <div key={member.id} className="flex items-center gap-3 p-3 rounded-lg hover:bg-emerald-50 transition-all duration-200 animate-fade-in" style={{animationDelay: `${index * 100}ms`}}>
                       <Avatar className="w-10 h-10">
                         <AvatarFallback className="bg-gradient-to-br from-emerald-400 to-amber-400 text-white font-semibold">
                           {member.avatar}
@@ -285,16 +354,30 @@ const CompanyDashboard = () => {
                         <p className="font-medium text-gray-900">{member.name}</p>
                         <p className="text-sm text-gray-500">{member.role}</p>
                       </div>
-                      <Badge variant="outline" className="border-emerald-300 text-emerald-700">
-                        {member.projects.length} projects
-                      </Badge>
+                      <div className="flex items-center gap-2">
+                        <Badge variant="outline" className="border-emerald-300 text-emerald-700">
+                          {member.projects.length} projects
+                        </Badge>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => handleEditMember(member)}
+                          className="p-1 h-auto"
+                        >
+                          <Edit className="w-4 h-4" />
+                        </Button>
+                      </div>
                     </div>
                   ))}
                   
                   {teamMembers.filter(m => m.status === 'Active').length === 0 && (
                     <div className="text-center py-8 text-gray-500">
                       <Users className="w-8 h-8 mx-auto mb-3 text-gray-300" />
-                      <p className="text-sm">No team members yet</p>
+                      <p className="text-sm mb-3">No team members yet</p>
+                      <Button onClick={handleAddMember} variant="outline" className="border-emerald-300 hover:bg-emerald-50">
+                        <Plus className="w-4 h-4 mr-2" />
+                        Add Team Member
+                      </Button>
                     </div>
                   )}
                 </div>
@@ -308,6 +391,15 @@ const CompanyDashboard = () => {
           </div>
         </div>
       </div>
+
+      <TeamMemberDialog
+        open={isTeamDialogOpen}
+        onOpenChange={setIsTeamDialogOpen}
+        member={selectedMember}
+        onSave={handleSaveMember}
+        onDelete={deleteTeamMember}
+        onDeactivate={deactivateTeamMember}
+      />
     </div>
   );
 };
