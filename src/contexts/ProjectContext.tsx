@@ -1,3 +1,4 @@
+
 import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
 import { useUser } from './UserContext';
 import { supabase } from '@/integrations/supabase/client';
@@ -32,6 +33,12 @@ export interface TeamMember {
   avatar: string;
   projects: string[];
   status: 'Active' | 'Inactive';
+  department: string;
+  phone?: string;
+  hireDate: string;
+  salary: number;
+  permissions: string[];
+  userId?: string;
 }
 
 export interface Issue {
@@ -46,25 +53,64 @@ export interface Issue {
   createdAt: string;
   updatedAt: string;
   labels: string[];
+  comments?: IssueComment[];
+}
+
+export interface IssueComment {
+  id: string;
+  issueId: string;
+  userId: string;
+  content: string;
+  createdAt: string;
+  updatedAt: string;
+  userName?: string;
+}
+
+export interface ProjectHistory {
+  id: string;
+  projectId: string;
+  action: string;
+  fieldChanged?: string;
+  oldValue?: string;
+  newValue?: string;
+  changedBy: string;
+  createdAt: string;
+}
+
+export interface Notification {
+  id: string;
+  userId: string;
+  title: string;
+  message: string;
+  type: 'info' | 'success' | 'warning' | 'error';
+  read: boolean;
+  actionUrl?: string;
+  createdAt: string;
 }
 
 interface ProjectContextType {
   projects: Project[];
   issues: Issue[];
   teamMembers: TeamMember[];
+  notifications: Notification[];
+  projectHistory: ProjectHistory[];
   loading: boolean;
   updateProject: (projectId: string, updates: Partial<Project>) => Promise<void>;
   addProject: (project: Omit<Project, 'id'>) => Promise<void>;
   deleteProject: (projectId: string) => Promise<void>;
   addIssue: (issue: Omit<Issue, 'id'>) => Promise<void>;
   updateIssue: (issueId: string, updates: Partial<Issue>) => Promise<void>;
+  addIssueComment: (issueId: string, content: string) => Promise<void>;
   addTeamMember: (member: Omit<TeamMember, 'id'>) => Promise<void>;
   updateTeamMember: (memberId: string, updates: Partial<TeamMember>) => Promise<void>;
+  deactivateTeamMember: (memberId: string) => Promise<void>;
   assignProjectToTeam: (projectId: string, memberIds: string[]) => Promise<void>;
   getProjectsByRole: () => Project[];
   getIssuesByRole: () => Issue[];
   getTeamMembersByRole: () => TeamMember[];
   fetchProjects: () => Promise<void>;
+  sendNotification: (userId: string, title: string, message: string, type?: string) => Promise<void>;
+  markNotificationAsRead: (notificationId: string) => Promise<void>;
 }
 
 const ProjectContext = createContext<ProjectContextType | undefined>(undefined);
@@ -86,6 +132,8 @@ export const ProjectProvider: React.FC<ProjectProviderProps> = ({ children }) =>
   const [projects, setProjects] = useState<Project[]>([]);
   const [issues, setIssues] = useState<Issue[]>([]);
   const [teamMembers, setTeamMembers] = useState<TeamMember[]>([]);
+  const [notifications, setNotifications] = useState<Notification[]>([]);
+  const [projectHistory, setProjectHistory] = useState<ProjectHistory[]>([]);
   const [loading, setLoading] = useState(false);
 
   const fetchProjects = async () => {
@@ -148,7 +196,13 @@ export const ProjectProvider: React.FC<ProjectProviderProps> = ({ children }) =>
         role: member.role,
         avatar: member.avatar || member.name.split(' ').map(n => n[0]).join(''),
         projects: member.projects || [],
-        status: member.status as TeamMember['status']
+        status: member.status as TeamMember['status'],
+        department: member.department || 'Engineering',
+        phone: member.phone || '',
+        hireDate: member.hire_date || new Date().toISOString().split('T')[0],
+        salary: Number(member.salary) || 0,
+        permissions: member.permissions || [],
+        userId: member.user_id || undefined
       }));
 
       setTeamMembers(formattedMembers);
@@ -190,13 +244,102 @@ export const ProjectProvider: React.FC<ProjectProviderProps> = ({ children }) =>
     }
   };
 
+  const fetchNotifications = async () => {
+    if (!user || !session) return;
+
+    try {
+      const { data, error } = await supabase
+        .from('notifications')
+        .select('*')
+        .eq('user_id', user.id)
+        .order('created_at', { ascending: false });
+
+      if (error) throw error;
+
+      const formattedNotifications: Notification[] = data.map(notification => ({
+        id: notification.id,
+        userId: notification.user_id,
+        title: notification.title,
+        message: notification.message,
+        type: notification.type as Notification['type'],
+        read: notification.read || false,
+        actionUrl: notification.action_url || undefined,
+        createdAt: notification.created_at
+      }));
+
+      setNotifications(formattedNotifications);
+    } catch (error) {
+      console.error('Error fetching notifications:', error);
+    }
+  };
+
+  const fetchProjectHistory = async () => {
+    if (!user || !session) return;
+
+    try {
+      const { data, error } = await supabase
+        .from('project_history')
+        .select('*')
+        .order('created_at', { ascending: false });
+
+      if (error) throw error;
+
+      const formattedHistory: ProjectHistory[] = data.map(history => ({
+        id: history.id,
+        projectId: history.project_id || '',
+        action: history.action,
+        fieldChanged: history.field_changed || undefined,
+        oldValue: history.old_value || undefined,
+        newValue: history.new_value || undefined,
+        changedBy: history.changed_by || '',
+        createdAt: history.created_at
+      }));
+
+      setProjectHistory(formattedHistory);
+    } catch (error) {
+      console.error('Error fetching project history:', error);
+    }
+  };
+
   useEffect(() => {
     if (user && session) {
       fetchProjects();
       fetchTeamMembers();
       fetchIssues();
+      fetchNotifications();
+      fetchProjectHistory();
     }
   }, [user, session]);
+
+  const sendNotification = async (userId: string, title: string, message: string, type: string = 'info') => {
+    try {
+      const { error } = await supabase.rpc('send_notification', {
+        p_user_id: userId,
+        p_title: title,
+        p_message: message,
+        p_type: type
+      });
+
+      if (error) throw error;
+      await fetchNotifications();
+    } catch (error) {
+      console.error('Error sending notification:', error);
+    }
+  };
+
+  const markNotificationAsRead = async (notificationId: string) => {
+    try {
+      const { error } = await supabase
+        .from('notifications')
+        .update({ read: true })
+        .eq('id', notificationId);
+
+      if (error) throw error;
+      await fetchNotifications();
+    } catch (error) {
+      console.error('Error marking notification as read:', error);
+    }
+  };
 
   const addProject = async (project: Omit<Project, 'id'>) => {
     if (!user || !session) return;
@@ -228,6 +371,13 @@ export const ProjectProvider: React.FC<ProjectProviderProps> = ({ children }) =>
 
       await fetchProjects();
       toast.success('Project created successfully');
+      
+      // Send notification to team members
+      if (project.assignedTo && project.assignedTo.length > 0) {
+        for (const memberId of project.assignedTo) {
+          await sendNotification(memberId, 'New Project Assignment', `You have been assigned to project: ${project.name}`, 'info');
+        }
+      }
     } catch (error) {
       console.error('Error adding project:', error);
       toast.error('Failed to create project');
@@ -258,6 +408,7 @@ export const ProjectProvider: React.FC<ProjectProviderProps> = ({ children }) =>
       if (error) throw error;
 
       await fetchProjects();
+      await fetchProjectHistory();
       toast.success('Project updated successfully');
     } catch (error) {
       console.error('Error updating project:', error);
@@ -303,6 +454,11 @@ export const ProjectProvider: React.FC<ProjectProviderProps> = ({ children }) =>
 
       await fetchIssues();
       toast.success('Issue created successfully');
+
+      // Send notification to assigned user
+      if (issue.assignedTo) {
+        await sendNotification(issue.assignedTo, 'New Issue Assignment', `You have been assigned issue: ${issue.title}`, 'warning');
+      }
     } catch (error) {
       console.error('Error adding issue:', error);
       toast.error('Failed to create issue');
@@ -334,6 +490,27 @@ export const ProjectProvider: React.FC<ProjectProviderProps> = ({ children }) =>
     }
   };
 
+  const addIssueComment = async (issueId: string, content: string) => {
+    if (!user) return;
+
+    try {
+      const { error } = await supabase
+        .from('issue_comments')
+        .insert({
+          issue_id: issueId,
+          user_id: user.id,
+          content: content
+        });
+
+      if (error) throw error;
+
+      toast.success('Comment added successfully');
+    } catch (error) {
+      console.error('Error adding comment:', error);
+      toast.error('Failed to add comment');
+    }
+  };
+
   const addTeamMember = async (member: Omit<TeamMember, 'id'>) => {
     if (!user) return;
 
@@ -347,6 +524,11 @@ export const ProjectProvider: React.FC<ProjectProviderProps> = ({ children }) =>
           avatar: member.avatar,
           projects: member.projects || [],
           status: member.status,
+          department: member.department,
+          phone: member.phone,
+          hire_date: member.hireDate,
+          salary: member.salary,
+          permissions: member.permissions,
           company_id: user.companyId || ''
         });
 
@@ -371,6 +553,10 @@ export const ProjectProvider: React.FC<ProjectProviderProps> = ({ children }) =>
           avatar: updates.avatar,
           projects: updates.projects,
           status: updates.status,
+          department: updates.department,
+          phone: updates.phone,
+          salary: updates.salary,
+          permissions: updates.permissions,
           updated_at: new Date().toISOString()
         })
         .eq('id', memberId);
@@ -382,6 +568,23 @@ export const ProjectProvider: React.FC<ProjectProviderProps> = ({ children }) =>
     } catch (error) {
       console.error('Error updating team member:', error);
       toast.error('Failed to update team member');
+    }
+  };
+
+  const deactivateTeamMember = async (memberId: string) => {
+    try {
+      const { error } = await supabase
+        .from('team_members')
+        .update({ status: 'Inactive' })
+        .eq('id', memberId);
+
+      if (error) throw error;
+
+      await fetchTeamMembers();
+      toast.success('Team member deactivated successfully');
+    } catch (error) {
+      console.error('Error deactivating team member:', error);
+      toast.error('Failed to deactivate team member');
     }
   };
 
@@ -448,19 +651,25 @@ export const ProjectProvider: React.FC<ProjectProviderProps> = ({ children }) =>
         projects,
         issues,
         teamMembers,
+        notifications,
+        projectHistory,
         loading,
         updateProject,
         addProject,
         deleteProject,
         addIssue,
         updateIssue,
+        addIssueComment,
         addTeamMember,
         updateTeamMember,
+        deactivateTeamMember,
         assignProjectToTeam,
         getProjectsByRole,
         getIssuesByRole,
         getTeamMembersByRole,
         fetchProjects,
+        sendNotification,
+        markNotificationAsRead,
       }}
     >
       {children}

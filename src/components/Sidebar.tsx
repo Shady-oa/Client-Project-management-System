@@ -7,6 +7,7 @@ import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { useUser } from "@/contexts/UserContext";
+import { useProject } from "@/contexts/ProjectContext";
 import { 
   Briefcase, 
   Users, 
@@ -33,6 +34,17 @@ const Sidebar = ({ className }: SidebarProps) => {
   const [collapsed, setCollapsed] = useState(false);
   const location = useLocation();
   const { user, isAdmin, isCompany, isClient, logout } = useUser();
+  const { 
+    getProjectsByRole, 
+    getTeamMembersByRole, 
+    getIssuesByRole,
+    notifications 
+  } = useProject();
+
+  const projects = getProjectsByRole();
+  const teamMembers = getTeamMembersByRole();
+  const issues = getIssuesByRole();
+  const unreadNotifications = notifications.filter(n => !n.read);
 
   // Dynamic navigation based on user role
   const getNavigation = () => {
@@ -89,6 +101,30 @@ const Sidebar = ({ className }: SidebarProps) => {
     window.location.href = "/";
   };
 
+  const getQuickStats = () => {
+    if (isAdmin) {
+      return {
+        stat1: { label: "Total Companies", value: "156" },
+        stat2: { label: "Active Users", value: "2,847" },
+        stat3: { label: "Support Tickets", value: unreadNotifications.length.toString() }
+      };
+    } else if (isCompany) {
+      return {
+        stat1: { label: "Active Projects", value: projects.filter(p => p.status === 'In Progress').length.toString() },
+        stat2: { label: "Team Members", value: teamMembers.filter(m => m.status === 'Active').length.toString() },
+        stat3: { label: "Open Issues", value: issues.filter(i => i.status === 'Open').length.toString() }
+      };
+    } else {
+      return {
+        stat1: { label: "My Projects", value: projects.length.toString() },
+        stat2: { label: "Open Issues", value: issues.filter(i => i.status === 'Open').length.toString() },
+        stat3: { label: "Notifications", value: unreadNotifications.length.toString() }
+      };
+    }
+  };
+
+  const quickStats = getQuickStats();
+
   return (
     <div className={cn(
       "flex flex-col bg-white/80 backdrop-blur-sm border-r border-emerald-200 transition-all duration-300 shadow-lg",
@@ -128,6 +164,11 @@ const Sidebar = ({ className }: SidebarProps) => {
           <div className="flex items-center gap-2 p-2 bg-gradient-to-r from-emerald-50 to-amber-50 rounded-lg">
             <roleInfo.icon className={`w-4 h-4 ${roleInfo.color}`} />
             <span className="text-sm font-medium text-gray-700">{roleInfo.label}</span>
+            {unreadNotifications.length > 0 && (
+              <Badge variant="destructive" className="ml-auto text-xs h-5 px-1">
+                {unreadNotifications.length}
+              </Badge>
+            )}
           </div>
         </div>
       )}
@@ -160,27 +201,17 @@ const Sidebar = ({ className }: SidebarProps) => {
           <Card className="p-3 bg-gradient-to-r from-emerald-50 to-amber-50 border-emerald-200">
             <div className="space-y-2">
               <div className="flex justify-between items-center text-xs">
-                <span className="text-gray-600">
-                  {isAdmin ? "Total Companies" : isCompany ? "Active Projects" : "My Projects"}
-                </span>
-                <span className="font-semibold text-gray-900">
-                  {isAdmin ? "156" : isCompany ? "12" : "3"}
-                </span>
+                <span className="text-gray-600">{quickStats.stat1.label}</span>
+                <span className="font-semibold text-gray-900">{quickStats.stat1.value}</span>
               </div>
               <div className="flex justify-between items-center text-xs">
-                <span className="text-gray-600">
-                  {isAdmin ? "Active Users" : isCompany ? "Team Members" : "Open Issues"}
-                </span>
-                <span className="font-semibold text-gray-900">
-                  {isAdmin ? "2,847" : isCompany ? "18" : "2"}
-                </span>
+                <span className="text-gray-600">{quickStats.stat2.label}</span>
+                <span className="font-semibold text-gray-900">{quickStats.stat2.value}</span>
               </div>
               <div className="flex justify-between items-center text-xs">
-                <span className="text-gray-600">
-                  {isAdmin ? "Support Tickets" : "Open Issues"}
-                </span>
+                <span className="text-gray-600">{quickStats.stat3.label}</span>
                 <Badge variant="secondary" className="text-xs h-5">
-                  {isAdmin ? "23" : isCompany ? "8" : "1"}
+                  {quickStats.stat3.value}
                 </Badge>
               </div>
             </div>

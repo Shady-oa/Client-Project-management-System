@@ -1,76 +1,69 @@
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { Briefcase, Users, Clock, CheckCircle, Plus, Settings, User, Filter } from "lucide-react";
+import { Briefcase, Users, Clock, CheckCircle, Plus, Settings, User, Filter, Bell } from "lucide-react";
 import { Link, useNavigate } from "react-router-dom";
 import { useUser } from "@/contexts/UserContext";
+import { useProject } from "@/contexts/ProjectContext";
+import NotificationToast from "@/components/NotificationToast";
 
 const CompanyDashboard = () => {
   const navigate = useNavigate();
   const { user } = useUser();
+  const { 
+    getProjectsByRole, 
+    getTeamMembersByRole, 
+    getIssuesByRole,
+    notifications,
+    loading 
+  } = useProject();
+  
   const [selectedFilter, setSelectedFilter] = useState("all");
 
-  const projects = [
-    {
-      id: 1,
-      name: "E-commerce Platform",
-      client: "RetailMax Corp",
-      status: "In Progress",
-      progress: 75,
-      team: 6,
-      dueDate: "2024-07-15",
-      priority: "High",
-      budget: 850000,
-      clientAvatar: "RM"
-    },
-    {
-      id: 2,
-      name: "Mobile Banking App",
-      client: "SecureBank Ltd",
-      status: "Planning",
-      progress: 25,
-      team: 4,
-      dueDate: "2024-09-30",
-      priority: "Critical",
-      budget: 1200000,
-      clientAvatar: "SB"
-    },
-    {
-      id: 3,
-      name: "CRM Dashboard",
-      client: "SalesForce Kenya",
-      status: "In Progress",
-      progress: 90,
-      team: 3,
-      dueDate: "2024-06-20",
-      priority: "Medium",
-      budget: 450000,
-      clientAvatar: "SF"
-    }
-  ];
-
-  const teamMembers = [
-    { name: "Sarah Chen", role: "Project Manager", projects: 3, avatar: "SC" },
-    { name: "Mike Johnson", role: "Full Stack Developer", projects: 2, avatar: "MJ" },
-    { name: "Emma Davis", role: "UI/UX Designer", projects: 4, avatar: "ED" },
-    { name: "Alex Rodriguez", role: "Backend Developer", projects: 2, avatar: "AR" }
-  ];
+  const projects = getProjectsByRole();
+  const teamMembers = getTeamMembersByRole();
+  const issues = getIssuesByRole();
+  const unreadNotifications = notifications.filter(n => !n.read);
 
   const stats = [
-    { title: "Active Projects", value: "8", icon: Briefcase, change: "+2 this month", color: "bg-emerald-50 text-emerald-600" },
-    { title: "Team Members", value: "12", icon: Users, change: "+1 this week", color: "bg-blue-50 text-blue-600" },
-    { title: "On-Time Delivery", value: "94%", icon: Clock, change: "+3% from last month", color: "bg-amber-50 text-amber-600" },
-    { title: "Completed Projects", value: "24", icon: CheckCircle, change: "+4 this quarter", color: "bg-green-50 text-green-600" }
+    { 
+      title: "Active Projects", 
+      value: projects.filter(p => p.status === 'In Progress').length.toString(), 
+      icon: Briefcase, 
+      change: `+${projects.filter(p => new Date(p.lastUpdate) > new Date(Date.now() - 30*24*60*60*1000)).length} this month`, 
+      color: "bg-emerald-50 text-emerald-600" 
+    },
+    { 
+      title: "Team Members", 
+      value: teamMembers.filter(m => m.status === 'Active').length.toString(), 
+      icon: Users, 
+      change: `+${teamMembers.filter(m => new Date(m.hireDate) > new Date(Date.now() - 7*24*60*60*1000)).length} this week`, 
+      color: "bg-blue-50 text-blue-600" 
+    },
+    { 
+      title: "On-Time Delivery", 
+      value: `${Math.round((projects.filter(p => p.status === 'Completed').length / Math.max(projects.length, 1)) * 100)}%`, 
+      icon: Clock, 
+      change: "Performance metric", 
+      color: "bg-amber-50 text-amber-600" 
+    },
+    { 
+      title: "Completed Projects", 
+      value: projects.filter(p => p.status === 'Completed').length.toString(), 
+      icon: CheckCircle, 
+      change: `${projects.filter(p => p.status === 'Completed' && new Date(p.lastUpdate) > new Date(Date.now() - 90*24*60*60*1000)).length} this quarter`, 
+      color: "bg-green-50 text-green-600" 
+    }
   ];
 
   const handleNewProject = () => {
     navigate("/projects");
   };
 
-  const handleProjectClick = (projectId: number) => {
+  const handleProjectClick = (projectId: string) => {
     navigate(`/projects/${projectId}`);
   };
 
@@ -79,6 +72,8 @@ const CompanyDashboard = () => {
       case "In Progress": return "bg-blue-100 text-blue-800";
       case "Planning": return "bg-yellow-100 text-yellow-800";
       case "Completed": return "bg-green-100 text-green-800";
+      case "Testing": return "bg-purple-100 text-purple-800";
+      case "On Hold": return "bg-red-100 text-red-800";
       default: return "bg-gray-100 text-gray-800";
     }
   };
@@ -93,8 +88,20 @@ const CompanyDashboard = () => {
     }
   };
 
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-emerald-50 to-amber-50 flex items-center justify-center">
+        <div className="text-center">
+          <div className="w-8 h-8 animate-spin mx-auto mb-4 border-4 border-emerald-600 border-t-transparent rounded-full" />
+          <p className="text-gray-600">Loading dashboard...</p>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="min-h-screen bg-gradient-to-br from-emerald-50 to-amber-50">
+      <NotificationToast />
       <div className="max-w-7xl mx-auto p-6">
         {/* Header */}
         <div className="mb-8">
@@ -104,6 +111,14 @@ const CompanyDashboard = () => {
                 Company Dashboard
               </h1>
               <p className="text-gray-600 mt-2">Welcome back to {user?.companyName || "Your Company"}</p>
+              {unreadNotifications.length > 0 && (
+                <div className="flex items-center gap-2 mt-2">
+                  <Bell className="w-4 h-4 text-amber-600" />
+                  <span className="text-sm text-amber-600">
+                    You have {unreadNotifications.length} unread notifications
+                  </span>
+                </div>
+              )}
             </div>
             <div className="flex items-center gap-3">
               <Button 
@@ -174,7 +189,7 @@ const CompanyDashboard = () => {
               </CardHeader>
               <CardContent className="p-0">
                 <div className="divide-y divide-emerald-100">
-                  {projects.map((project, index) => (
+                  {projects.slice(0, 5).map((project, index) => (
                     <div 
                       key={project.id} 
                       className="p-6 hover:bg-emerald-50/50 transition-all duration-200 cursor-pointer animate-fade-in"
@@ -186,7 +201,7 @@ const CompanyDashboard = () => {
                           <div className="flex items-center gap-3 mb-3">
                             <Avatar className="w-10 h-10">
                               <AvatarFallback className="bg-gradient-to-br from-emerald-400 to-amber-400 text-white font-semibold">
-                                {project.clientAvatar}
+                                {project.client.substring(0, 2).toUpperCase()}
                               </AvatarFallback>
                             </Avatar>
                             <div>
@@ -207,11 +222,11 @@ const CompanyDashboard = () => {
                           <div className="flex items-center gap-6 text-sm text-gray-500">
                             <div className="flex items-center gap-1">
                               <Users className="w-4 h-4" />
-                              {project.team} members
+                              {project.assignedTo?.length || 0} members
                             </div>
                             <div className="flex items-center gap-1">
                               <Clock className="w-4 h-4" />
-                              Due {project.dueDate}
+                              Due {project.dueDate || 'Not set'}
                             </div>
                             <span className="font-medium text-emerald-600">
                               KES {project.budget.toLocaleString()}
@@ -230,6 +245,21 @@ const CompanyDashboard = () => {
                       </div>
                     </div>
                   ))}
+                  
+                  {projects.length === 0 && (
+                    <div className="p-12 text-center text-gray-500">
+                      <Briefcase className="w-12 h-12 mx-auto mb-4 text-gray-300" />
+                      <h3 className="text-lg font-medium mb-2">No projects yet</h3>
+                      <p className="text-sm">Create your first project to get started</p>
+                      <Button 
+                        className="mt-4 bg-emerald-600 hover:bg-emerald-700" 
+                        onClick={handleNewProject}
+                      >
+                        <Plus className="w-4 h-4 mr-2" />
+                        Create Project
+                      </Button>
+                    </div>
+                  )}
                 </div>
               </CardContent>
             </Card>
@@ -244,8 +274,8 @@ const CompanyDashboard = () => {
               </CardHeader>
               <CardContent className="p-6">
                 <div className="space-y-4">
-                  {teamMembers.map((member, index) => (
-                    <div key={member.name} className="flex items-center gap-3 p-3 rounded-lg hover:bg-emerald-50 transition-all duration-200 cursor-pointer animate-fade-in" style={{animationDelay: `${index * 100}ms`}}>
+                  {teamMembers.filter(m => m.status === 'Active').slice(0, 5).map((member, index) => (
+                    <div key={member.id} className="flex items-center gap-3 p-3 rounded-lg hover:bg-emerald-50 transition-all duration-200 cursor-pointer animate-fade-in" style={{animationDelay: `${index * 100}ms`}}>
                       <Avatar className="w-10 h-10">
                         <AvatarFallback className="bg-gradient-to-br from-emerald-400 to-amber-400 text-white font-semibold">
                           {member.avatar}
@@ -256,10 +286,17 @@ const CompanyDashboard = () => {
                         <p className="text-sm text-gray-500">{member.role}</p>
                       </div>
                       <Badge variant="outline" className="border-emerald-300 text-emerald-700">
-                        {member.projects} projects
+                        {member.projects.length} projects
                       </Badge>
                     </div>
                   ))}
+                  
+                  {teamMembers.filter(m => m.status === 'Active').length === 0 && (
+                    <div className="text-center py-8 text-gray-500">
+                      <Users className="w-8 h-8 mx-auto mb-3 text-gray-300" />
+                      <p className="text-sm">No team members yet</p>
+                    </div>
+                  )}
                 </div>
                 <Link to="/users">
                   <Button variant="outline" className="w-full mt-4 border-emerald-300 hover:bg-emerald-50">
