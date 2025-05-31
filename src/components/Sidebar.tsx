@@ -96,8 +96,8 @@ const Sidebar = ({ className }: SidebarProps) => {
   const getQuickStats = () => {
     if (isAdmin) {
       return {
-        stat1: { label: "Total Companies", value: "156" },
-        stat2: { label: "Active Users", value: "2,847" },
+        stat1: { label: "Total Companies", value: "4" },
+        stat2: { label: "Active Users", value: "25" },
         stat3: { label: "Support Tickets", value: "12" }
       };
     } else if (isCompany) {
@@ -117,6 +117,19 @@ const Sidebar = ({ className }: SidebarProps) => {
 
   const quickStats = getQuickStats();
 
+  const getCompanyName = () => {
+    if (!user?.companyId) return "Your Company";
+    
+    const companies = {
+      "catech": "CATECH",
+      "innovatecorp": "InnovateCorp", 
+      "digitalsolutions": "DigitalSolutions",
+      "techforward": "TechForward"
+    };
+    
+    return companies[user.companyId] || user.companyId.toUpperCase();
+  };
+
   return (
     <div className={cn(
       "flex flex-col bg-white/80 backdrop-blur-sm border-r border-emerald-200 transition-all duration-300 shadow-lg",
@@ -132,7 +145,7 @@ const Sidebar = ({ className }: SidebarProps) => {
             </div>
             <div>
               <h2 className="font-bold text-gray-900">ProjectHub</h2>
-              <p className="text-xs text-emerald-600">{user?.companyName || "Your Company"}</p>
+              <p className="text-xs text-emerald-600">{getCompanyName()}</p>
             </div>
           </div>
         )}

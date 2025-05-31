@@ -1,19 +1,17 @@
 
 import { useState, useEffect } from "react";
-import { Card, CardContent } from "@/components/ui/card";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Textarea } from "@/components/ui/textarea";
+import { Badge } from "@/components/ui/badge";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
-import { Calendar, Search, Plus, Bug, AlertCircle, CheckCircle, Trash2 } from "lucide-react";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
-import { Textarea } from "@/components/ui/textarea";
-import { supabase } from "@/integrations/supabase/client";
+import { Plus, MessageSquare, Clock, AlertCircle, CheckCircle, Trash2, Edit } from "lucide-react";
 import { useUser } from "@/contexts/UserContext";
-import { useProjects } from "@/hooks/useProjects";
-import { useTeamMembers } from "@/hooks/useTeamMembers";
+import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 
 interface Issue {
@@ -22,93 +20,83 @@ interface Issue {
   description: string;
   status: 'Open' | 'In Progress' | 'Resolved' | 'Closed';
   priority: 'Low' | 'Medium' | 'High' | 'Critical';
-  projectId: string;
-  assignedTo?: string;
-  createdBy: string;
-  createdAt: string;
-  updatedAt: string;
+  project_id?: string;
+  created_by: string;
+  assigned_to?: string;
+  created_at: string;
+  updated_at: string;
   labels: string[];
+  creator?: {
+    full_name: string;
+    email: string;
+  };
 }
 
-interface IssueComment {
+interface Comment {
   id: string;
-  issueId: string;
-  userId: string;
   content: string;
-  createdAt: string;
-  userName?: string;
+  user_id: string;
+  issue_id: string;
+  created_at: string;
+  user?: {
+    full_name: string;
+    email: string;
+  };
 }
 
 const Issues = () => {
-  const { user, isClient, isCompany, isAdmin } = useUser();
-  const { projects } = useProjects();
-  const { teamMembers } = useTeamMembers();
+  const { user, isClient, isCompany } = useUser();
   const [issues, setIssues] = useState<Issue[]>([]);
-  const [comments, setComments] = useState<{ [key: string]: IssueComment[] }>({});
-  const [searchTerm, setSearchTerm] = useState("");
-  const [statusFilter, setStatusFilter] = useState("all");
-  const [priorityFilter, setPriorityFilter] = useState("all");
-  const [isNewIssueOpen, setIsNewIssueOpen] = useState(false);
+  const [comments, setComments] = useState<{ [key: string]: Comment[] }>({});
+  const [loading, setLoading] = useState(false);
   const [selectedIssue, setSelectedIssue] = useState<Issue | null>(null);
+  const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
   const [newComment, setNewComment] = useState("");
   const [newIssue, setNewIssue] = useState({
     title: "",
     description: "",
-    priority: "Medium",
-    assignee: "",
-    project: "",
-    labels: ""
+    priority: "Medium" as const
   });
 
   const fetchIssues = async () => {
     if (!user) return;
 
+    setLoading(true);
     try {
-      let query = supabase.from('issues').select('*');
-      
+      let query = supabase
+        .from('issues')
+        .select(`
+          *,
+          creator:profiles!issues_created_by_fkey(full_name, email)
+        `);
+
       if (isClient) {
-        // Client sees only issues from their projects
-        const clientProjectIds = projects.filter(p => p.clientId === user.id).map(p => p.id);
-        if (clientProjectIds.length > 0) {
-          query = query.in('project_id', clientProjectIds);
-        } else {
-          setIssues([]);
-          return;
-        }
+        // Clients see only their own issues
+        query = query.eq('created_by', user.id);
       } else if (isCompany) {
-        // Company sees issues from their projects
-        const companyProjectIds = projects.filter(p => p.companyId === user.companyId).map(p => p.id);
-        if (companyProjectIds.length > 0) {
-          query = query.in('project_id', companyProjectIds);
-        } else {
-          setIssues([]);
-          return;
+        // Companies see issues from their clients
+        const { data: companyProjects } = await supabase
+          .from('projects')
+          .select('client_id')
+          .eq('company_id', user.companyId);
+        
+        if (companyProjects && companyProjects.length > 0) {
+          const clientIds = companyProjects.map(p => p.client_id).filter(Boolean);
+          if (clientIds.length > 0) {
+            query = query.in('created_by', clientIds);
+          }
         }
       }
-      // Admin sees all issues
-      
+
       const { data, error } = await query.order('created_at', { ascending: false });
 
       if (error) throw error;
-
-      const formattedIssues: Issue[] = data.map(issue => ({
-        id: issue.id,
-        title: issue.title,
-        description: issue.description || '',
-        status: issue.status as Issue['status'],
-        priority: issue.priority as Issue['priority'],
-        projectId: issue.project_id || '',
-        assignedTo: issue.assigned_to || undefined,
-        createdBy: issue.created_by || '',
-        createdAt: issue.created_at,
-        updatedAt: issue.updated_at,
-        labels: issue.labels || []
-      }));
-
-      setIssues(formattedIssues);
+      setIssues(data || []);
     } catch (error) {
       console.error('Error fetching issues:', error);
       toast.error('Failed to fetch issues');
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -118,65 +106,20 @@ const Issues = () => {
         .from('issue_comments')
         .select(`
           *,
-          profiles:user_id (full_name, email)
+          user:profiles!issue_comments_user_id_fkey(full_name, email)
         `)
         .eq('issue_id', issueId)
         .order('created_at', { ascending: true });
 
       if (error) throw error;
-
-      const formattedComments: IssueComment[] = data.map(comment => ({
-        id: comment.id,
-        issueId: comment.issue_id,
-        userId: comment.user_id,
-        content: comment.content,
-        createdAt: comment.created_at,
-        userName: comment.profiles?.full_name || comment.profiles?.email || 'Unknown User'
-      }));
-
-      setComments(prev => ({
-        ...prev,
-        [issueId]: formattedComments
-      }));
+      setComments(prev => ({ ...prev, [issueId]: data || [] }));
     } catch (error) {
       console.error('Error fetching comments:', error);
-      // Fallback: fetch without profiles join
-      try {
-        const { data, error: fallbackError } = await supabase
-          .from('issue_comments')
-          .select('*')
-          .eq('issue_id', issueId)
-          .order('created_at', { ascending: true });
-
-        if (fallbackError) throw fallbackError;
-
-        const formattedComments: IssueComment[] = data.map(comment => ({
-          id: comment.id,
-          issueId: comment.issue_id,
-          userId: comment.user_id,
-          content: comment.content,
-          createdAt: comment.created_at,
-          userName: 'User'
-        }));
-
-        setComments(prev => ({
-          ...prev,
-          [issueId]: formattedComments
-        }));
-      } catch (fallbackError) {
-        console.error('Error in fallback fetch:', fallbackError);
-      }
     }
   };
 
   const createIssue = async () => {
-    if (!user || !newIssue.title || !newIssue.description || !newIssue.project) return;
-
-    // Only clients can create issues
-    if (!isClient) {
-      toast.error('Only clients can create issues');
-      return;
-    }
+    if (!user || !newIssue.title.trim()) return;
 
     try {
       const { error } = await supabase
@@ -184,52 +127,34 @@ const Issues = () => {
         .insert({
           title: newIssue.title,
           description: newIssue.description,
-          status: 'Open',
           priority: newIssue.priority,
-          project_id: newIssue.project,
-          created_by: user.id,
-          labels: newIssue.labels.split(',').map(l => l.trim()).filter(l => l)
+          status: 'Open',
+          created_by: user.id
         });
 
       if (error) throw error;
 
-      setNewIssue({
-        title: "",
-        description: "",
-        priority: "Medium",
-        assignee: "",
-        project: "",
-        labels: ""
-      });
-      setIsNewIssueOpen(false);
-      fetchIssues();
       toast.success('Issue created successfully');
+      setNewIssue({ title: "", description: "", priority: "Medium" });
+      setIsCreateDialogOpen(false);
+      fetchIssues();
     } catch (error) {
       console.error('Error creating issue:', error);
       toast.error('Failed to create issue');
     }
   };
 
-  const updateIssueStatus = async (issueId: string, newStatus: string) => {
-    // Only company users can change issue status
-    if (!isCompany && !isAdmin) {
-      toast.error('Only company users can change issue status');
-      return;
-    }
-
+  const updateIssueStatus = async (issueId: string, status: string) => {
     try {
       const { error } = await supabase
         .from('issues')
-        .update({ 
-          status: newStatus,
-          updated_at: new Date().toISOString()
-        })
+        .update({ status, updated_at: new Date().toISOString() })
         .eq('id', issueId);
 
       if (error) throw error;
 
-      fetchIssues();
       toast.success('Issue status updated');
+      fetchIssues();
     } catch (error) {
       console.error('Error updating issue:', error);
       toast.error('Failed to update issue status');
@@ -245,8 +170,9 @@ const Issues = () => {
 
       if (error) throw error;
 
-      fetchIssues();
       toast.success('Issue deleted successfully');
+      fetchIssues();
+      setSelectedIssue(null);
     } catch (error) {
       console.error('Error deleting issue:', error);
       toast.error('Failed to delete issue');
@@ -260,9 +186,9 @@ const Issues = () => {
       const { error } = await supabase
         .from('issue_comments')
         .insert({
-          issue_id: issueId,
+          content: newComment,
           user_id: user.id,
-          content: newComment.trim()
+          issue_id: issueId
         });
 
       if (error) throw error;
@@ -277,325 +203,280 @@ const Issues = () => {
   };
 
   useEffect(() => {
-    if (user && projects.length > 0) {
+    if (user) {
       fetchIssues();
     }
-  }, [user, projects]);
+  }, [user]);
 
-  const getStatusIcon = (status: string) => {
+  useEffect(() => {
+    if (selectedIssue) {
+      fetchComments(selectedIssue.id);
+    }
+  }, [selectedIssue]);
+
+  const getStatusColor = (status: string) => {
     switch (status) {
-      case "Open": return <AlertCircle className="w-4 h-4 text-red-500" />;
-      case "In Progress": return <AlertCircle className="w-4 h-4 text-blue-500" />;
-      case "Resolved": return <CheckCircle className="w-4 h-4 text-green-500" />;
-      default: return <AlertCircle className="w-4 h-4 text-gray-500" />;
+      case "Open": return "bg-blue-100 text-blue-800";
+      case "In Progress": return "bg-yellow-100 text-yellow-800";
+      case "Resolved": return "bg-green-100 text-green-800";
+      case "Closed": return "bg-gray-100 text-gray-800";
+      default: return "bg-gray-100 text-gray-800";
     }
   };
 
   const getPriorityColor = (priority: string) => {
     switch (priority) {
-      case "Critical": return "bg-red-100 text-red-800 border-red-200";
-      case "High": return "bg-orange-100 text-orange-800 border-orange-200";
-      case "Medium": return "bg-yellow-100 text-yellow-800 border-yellow-200";
-      case "Low": return "bg-green-100 text-green-800 border-green-200";
-      default: return "bg-gray-100 text-gray-800 border-gray-200";
+      case "Critical": return "bg-red-100 text-red-800";
+      case "High": return "bg-orange-100 text-orange-800";
+      case "Medium": return "bg-yellow-100 text-yellow-800";
+      case "Low": return "bg-green-100 text-green-800";
+      default: return "bg-gray-100 text-gray-800";
     }
   };
 
-  const filteredIssues = issues.filter(issue => {
-    const matchesSearch = issue.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                         issue.description.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                         issue.labels.some(label => label.toLowerCase().includes(searchTerm.toLowerCase()));
-    
-    const matchesStatus = statusFilter === "all" || 
-                         issue.status.toLowerCase().replace(" ", "-") === statusFilter;
-    
-    const matchesPriority = priorityFilter === "all" || 
-                           issue.priority.toLowerCase() === priorityFilter;
-    
-    return matchesSearch && matchesStatus && matchesPriority;
-  });
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-emerald-50 to-amber-50 flex items-center justify-center">
+        <div className="text-center">
+          <div className="w-8 h-8 animate-spin mx-auto mb-4 border-4 border-emerald-600 border-t-transparent rounded-full" />
+          <p className="text-gray-600">Loading issues...</p>
+        </div>
+      </div>
+    );
+  }
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="min-h-screen bg-gradient-to-br from-emerald-50 to-amber-50">
       <div className="max-w-7xl mx-auto p-6">
-        {/* Header */}
-        <div className="mb-8">
-          <div className="flex justify-between items-start mb-6">
-            <div>
-              <h1 className="text-3xl font-bold text-gray-900">Issues</h1>
-              <p className="text-gray-600 mt-1">
-                {isClient ? "View and track your project issues" : "Manage client issues and provide support"}
-              </p>
-            </div>
-            <div className="flex gap-3">
-              {isClient && (
-                <Dialog open={isNewIssueOpen} onOpenChange={setIsNewIssueOpen}>
-                  <DialogTrigger asChild>
-                    <Button className="bg-blue-600 hover:bg-blue-700">
-                      <Plus className="w-4 h-4 mr-2" />
-                      New Issue
+        <div className="flex justify-between items-center mb-8">
+          <div>
+            <h1 className="text-4xl font-bold bg-gradient-to-r from-emerald-600 to-amber-600 bg-clip-text text-transparent">
+              Issues & Support
+            </h1>
+            <p className="text-gray-600 mt-2">
+              {isClient ? "Track your support requests and issues" : "Manage client support requests"}
+            </p>
+          </div>
+          
+          {isClient && (
+            <Dialog open={isCreateDialogOpen} onOpenChange={setIsCreateDialogOpen}>
+              <DialogTrigger asChild>
+                <Button className="bg-emerald-600 hover:bg-emerald-700">
+                  <Plus className="w-4 h-4 mr-2" />
+                  Create Issue
+                </Button>
+              </DialogTrigger>
+              <DialogContent>
+                <DialogHeader>
+                  <DialogTitle>Create New Issue</DialogTitle>
+                  <DialogDescription>
+                    Describe your issue or support request
+                  </DialogDescription>
+                </DialogHeader>
+                <div className="space-y-4">
+                  <div>
+                    <Label htmlFor="title">Title</Label>
+                    <Input
+                      id="title"
+                      value={newIssue.title}
+                      onChange={(e) => setNewIssue({ ...newIssue, title: e.target.value })}
+                      placeholder="Brief description of the issue"
+                    />
+                  </div>
+                  <div>
+                    <Label htmlFor="description">Description</Label>
+                    <Textarea
+                      id="description"
+                      value={newIssue.description}
+                      onChange={(e) => setNewIssue({ ...newIssue, description: e.target.value })}
+                      placeholder="Detailed description of the issue"
+                      rows={4}
+                    />
+                  </div>
+                  <div>
+                    <Label htmlFor="priority">Priority</Label>
+                    <Select value={newIssue.priority} onValueChange={(value: any) => setNewIssue({ ...newIssue, priority: value })}>
+                      <SelectTrigger>
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="Low">Low</SelectItem>
+                        <SelectItem value="Medium">Medium</SelectItem>
+                        <SelectItem value="High">High</SelectItem>
+                        <SelectItem value="Critical">Critical</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div className="flex gap-2 justify-end">
+                    <Button variant="outline" onClick={() => setIsCreateDialogOpen(false)}>
+                      Cancel
                     </Button>
-                  </DialogTrigger>
-                  <DialogContent className="sm:max-w-[425px]">
-                    <DialogHeader>
-                      <DialogTitle>Create New Issue</DialogTitle>
-                      <DialogDescription>
-                        Report a bug, request a feature, or create an improvement
-                      </DialogDescription>
-                    </DialogHeader>
-                    <div className="grid gap-4 py-4">
-                      <div className="grid gap-2">
-                        <Label htmlFor="title">Title</Label>
-                        <Input
-                          id="title"
-                          value={newIssue.title}
-                          onChange={(e) => setNewIssue({...newIssue, title: e.target.value})}
-                          placeholder="Issue title"
-                        />
-                      </div>
-                      <div className="grid gap-2">
-                        <Label htmlFor="description">Description</Label>
-                        <Textarea
-                          id="description"
-                          value={newIssue.description}
-                          onChange={(e) => setNewIssue({...newIssue, description: e.target.value})}
-                          placeholder="Describe the issue in detail"
-                        />
-                      </div>
-                      <div className="grid gap-2">
-                        <Label htmlFor="project">Project</Label>
-                        <Select value={newIssue.project} onValueChange={(value) => setNewIssue({...newIssue, project: value})}>
-                          <SelectTrigger>
-                            <SelectValue placeholder="Select project" />
-                          </SelectTrigger>
-                          <SelectContent>
-                            {projects.map((project) => (
-                              <SelectItem key={project.id} value={project.id}>
-                                {project.name}
-                              </SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
-                      </div>
-                      <div className="grid gap-2">
-                        <Label htmlFor="priority">Priority</Label>
-                        <Select value={newIssue.priority} onValueChange={(value) => setNewIssue({...newIssue, priority: value})}>
-                          <SelectTrigger>
-                            <SelectValue />
-                          </SelectTrigger>
-                          <SelectContent>
-                            <SelectItem value="Low">Low</SelectItem>
-                            <SelectItem value="Medium">Medium</SelectItem>
-                            <SelectItem value="High">High</SelectItem>
-                            <SelectItem value="Critical">Critical</SelectItem>
-                          </SelectContent>
-                        </Select>
-                      </div>
-                      <div className="grid gap-2">
-                        <Label htmlFor="labels">Labels (comma separated)</Label>
-                        <Input
-                          id="labels"
-                          value={newIssue.labels}
-                          onChange={(e) => setNewIssue({...newIssue, labels: e.target.value})}
-                          placeholder="frontend, urgent, etc."
-                        />
-                      </div>
-                    </div>
-                    <div className="flex justify-end gap-3">
-                      <Button variant="outline" onClick={() => setIsNewIssueOpen(false)}>
-                        Cancel
-                      </Button>
-                      <Button onClick={createIssue}>Create Issue</Button>
-                    </div>
-                  </DialogContent>
-                </Dialog>
-              )}
-            </div>
-          </div>
-
-          {/* Filters */}
-          <div className="flex flex-col sm:flex-row gap-4 items-start sm:items-center">
-            <div className="relative">
-              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
-              <Input
-                placeholder="Search issues..."
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-                className="pl-10 w-64"
-              />
-            </div>
-            <Select value={statusFilter} onValueChange={setStatusFilter}>
-              <SelectTrigger className="w-40">
-                <SelectValue placeholder="Status" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">All Status</SelectItem>
-                <SelectItem value="open">Open</SelectItem>
-                <SelectItem value="in-progress">In Progress</SelectItem>
-                <SelectItem value="resolved">Resolved</SelectItem>
-              </SelectContent>
-            </Select>
-            <Select value={priorityFilter} onValueChange={setPriorityFilter}>
-              <SelectTrigger className="w-40">
-                <SelectValue placeholder="Priority" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">All Priorities</SelectItem>
-                <SelectItem value="critical">Critical</SelectItem>
-                <SelectItem value="high">High</SelectItem>
-                <SelectItem value="medium">Medium</SelectItem>
-                <SelectItem value="low">Low</SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
+                    <Button onClick={createIssue}>Create Issue</Button>
+                  </div>
+                </div>
+              </DialogContent>
+            </Dialog>
+          )}
         </div>
 
-        {/* Issues List */}
-        <Card className="border-gray-200 shadow-sm">
-          <CardContent className="p-0">
-            <div className="divide-y divide-gray-200">
-              {filteredIssues.map((issue) => {
-                const project = projects.find(p => p.id === issue.projectId);
-                const assignedMember = teamMembers.find(m => m.id === issue.assignedTo);
-                
-                return (
-                  <div key={issue.id} className="p-6 hover:bg-gray-50 transition-colors">
-                    <div className="flex items-start justify-between">
-                      <div className="flex-1">
-                        {/* Issue Header */}
-                        <div className="flex items-center gap-3 mb-2">
-                          <div className="flex items-center gap-2">
-                            {getStatusIcon(issue.status)}
-                            <Bug className="w-4 h-4 text-red-500" />
-                          </div>
-                          <span className="text-sm font-mono text-gray-500">{issue.id.slice(0, 8)}</span>
-                          <h3 className="font-semibold text-gray-900 hover:text-blue-600">{issue.title}</h3>
-                          <Badge className={`text-xs ${getPriorityColor(issue.priority)}`}>
-                            {issue.priority}
-                          </Badge>
-                        </div>
-
-                        {/* Issue Description */}
-                        <p className="text-gray-600 mb-3 ml-11">{issue.description}</p>
-
-                        {/* Labels */}
-                        <div className="flex flex-wrap gap-2 mb-3 ml-11">
-                          {issue.labels.map((label, index) => (
-                            <Badge key={index} variant="outline" className="text-xs">
-                              {label}
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+          {/* Issues List */}
+          <div className="lg:col-span-2">
+            <Card className="border-0 shadow-xl bg-white/80 backdrop-blur-sm">
+              <CardHeader className="border-b border-emerald-100 bg-gradient-to-r from-emerald-50 to-amber-50">
+                <CardTitle className="text-2xl text-emerald-700">Issues</CardTitle>
+                <CardDescription>
+                  {isClient ? "Your support requests" : "Client support requests"}
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="p-0">
+                <div className="divide-y divide-emerald-100">
+                  {issues.map((issue) => (
+                    <div
+                      key={issue.id}
+                      className="p-6 hover:bg-emerald-50/50 transition-all duration-200 cursor-pointer"
+                      onClick={() => setSelectedIssue(issue)}
+                    >
+                      <div className="flex items-start justify-between mb-3">
+                        <div className="flex-1">
+                          <h3 className="font-semibold text-gray-900 text-lg mb-2">
+                            {issue.title}
+                          </h3>
+                          <p className="text-gray-600 text-sm mb-3">{issue.description}</p>
+                          <div className="flex items-center gap-2 mb-2">
+                            <Badge className={getStatusColor(issue.status)}>
+                              {issue.status}
                             </Badge>
-                          ))}
-                        </div>
-
-                        {/* Issue Meta */}
-                        <div className="flex items-center gap-6 text-sm text-gray-500 ml-11">
-                          {assignedMember && (
-                            <div className="flex items-center gap-2">
-                              <Avatar className="w-5 h-5">
-                                <AvatarFallback className="text-xs bg-blue-100 text-blue-800">
-                                  {assignedMember.avatar}
-                                </AvatarFallback>
-                              </Avatar>
-                              <span>Assigned to {assignedMember.name}</span>
-                            </div>
-                          )}
-                          <div className="flex items-center gap-1">
-                            <Calendar className="w-4 h-4" />
-                            <span>Created {new Date(issue.createdAt).toLocaleDateString()}</span>
+                            <Badge className={getPriorityColor(issue.priority)}>
+                              {issue.priority}
+                            </Badge>
                           </div>
-                          {project && <span>Project: {project.name}</span>}
+                          <div className="text-sm text-gray-500">
+                            Created by: {issue.creator?.full_name || 'Unknown'} • {new Date(issue.created_at).toLocaleDateString()}
+                          </div>
                         </div>
-
-                        {/* Comments Section */}
-                        <div className="ml-11 mt-4">
+                        <div className="flex gap-2">
+                          {isCompany && (
+                            <Select value={issue.status} onValueChange={(value) => updateIssueStatus(issue.id, value)}>
+                              <SelectTrigger className="w-32">
+                                <SelectValue />
+                              </SelectTrigger>
+                              <SelectContent>
+                                <SelectItem value="Open">Open</SelectItem>
+                                <SelectItem value="In Progress">In Progress</SelectItem>
+                                <SelectItem value="Resolved">Resolved</SelectItem>
+                                <SelectItem value="Closed">Closed</SelectItem>
+                              </SelectContent>
+                            </Select>
+                          )}
                           <Button
                             variant="outline"
                             size="sm"
-                            onClick={() => {
-                              setSelectedIssue(issue);
-                              fetchComments(issue.id);
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              deleteIssue(issue.id);
                             }}
                           >
-                            View Comments ({comments[issue.id]?.length || 0})
+                            <Trash2 className="w-4 h-4" />
                           </Button>
                         </div>
                       </div>
+                    </div>
+                  ))}
+                  
+                  {issues.length === 0 && (
+                    <div className="p-12 text-center text-gray-500">
+                      <AlertCircle className="w-12 h-12 mx-auto mb-4 text-gray-300" />
+                      <h3 className="text-lg font-medium mb-2">No issues yet</h3>
+                      <p className="text-sm">
+                        {isClient ? "Create your first issue to get support" : "No client issues to review"}
+                      </p>
+                    </div>
+                  )}
+                </div>
+              </CardContent>
+            </Card>
+          </div>
 
-                      {/* Issue Actions */}
-                      <div className="text-right ml-6 space-y-2">
-                        <Badge variant="outline">
-                          {issue.status}
+          {/* Issue Details */}
+          <div>
+            {selectedIssue ? (
+              <Card className="border-0 shadow-xl bg-white/80 backdrop-blur-sm">
+                <CardHeader className="border-b border-emerald-100 bg-gradient-to-r from-emerald-50 to-amber-50">
+                  <CardTitle className="text-xl text-emerald-700">Issue Details</CardTitle>
+                </CardHeader>
+                <CardContent className="p-6">
+                  <div className="space-y-4">
+                    <div>
+                      <h3 className="font-semibold text-lg mb-2">{selectedIssue.title}</h3>
+                      <p className="text-gray-600 text-sm mb-4">{selectedIssue.description}</p>
+                      <div className="flex gap-2 mb-4">
+                        <Badge className={getStatusColor(selectedIssue.status)}>
+                          {selectedIssue.status}
                         </Badge>
-                        <div className="text-sm text-gray-500">
-                          Updated {new Date(issue.updatedAt).toLocaleDateString()}
-                        </div>
-                        {(isCompany || isAdmin) && (
-                          <Select 
-                            value={issue.status} 
-                            onValueChange={(value) => updateIssueStatus(issue.id, value)}
-                          >
-                            <SelectTrigger className="w-32">
-                              <SelectValue />
-                            </SelectTrigger>
-                            <SelectContent>
-                              <SelectItem value="Open">Open</SelectItem>
-                              <SelectItem value="In Progress">In Progress</SelectItem>
-                              <SelectItem value="Resolved">Resolved</SelectItem>
-                              <SelectItem value="Closed">Closed</SelectItem>
-                            </SelectContent>
-                          </Select>
+                        <Badge className={getPriorityColor(selectedIssue.priority)}>
+                          {selectedIssue.priority}
+                        </Badge>
+                      </div>
+                    </div>
+
+                    {/* Comments */}
+                    <div>
+                      <h4 className="font-medium text-gray-900 mb-3">Comments</h4>
+                      <div className="space-y-3 mb-4 max-h-64 overflow-y-auto">
+                        {comments[selectedIssue.id]?.map((comment) => (
+                          <div key={comment.id} className="p-3 bg-gray-50 rounded-lg">
+                            <div className="flex items-center gap-2 mb-2">
+                              <Avatar className="w-6 h-6">
+                                <AvatarFallback className="text-xs">
+                                  {comment.user?.full_name?.split(' ').map(n => n[0]).join('') || 'U'}
+                                </AvatarFallback>
+                              </Avatar>
+                              <span className="text-sm font-medium">{comment.user?.full_name || 'Unknown'}</span>
+                              <span className="text-xs text-gray-500">
+                                {new Date(comment.created_at).toLocaleDateString()}
+                              </span>
+                            </div>
+                            <p className="text-sm text-gray-700">{comment.content}</p>
+                          </div>
+                        ))}
+                        {(!comments[selectedIssue.id] || comments[selectedIssue.id].length === 0) && (
+                          <p className="text-sm text-gray-500 text-center py-4">No comments yet</p>
                         )}
+                      </div>
+
+                      {/* Add Comment */}
+                      <div className="space-y-2">
+                        <Textarea
+                          value={newComment}
+                          onChange={(e) => setNewComment(e.target.value)}
+                          placeholder="Add a comment..."
+                          rows={3}
+                        />
                         <Button
-                          variant="outline"
-                          size="sm"
-                          onClick={() => deleteIssue(issue.id)}
-                          className="text-red-600 border-red-200 hover:bg-red-50"
+                          onClick={() => addComment(selectedIssue.id)}
+                          disabled={!newComment.trim()}
+                          className="w-full"
                         >
-                          <Trash2 className="w-4 h-4" />
+                          <MessageSquare className="w-4 h-4 mr-2" />
+                          Add Comment
                         </Button>
                       </div>
                     </div>
                   </div>
-                );
-              })}
-            </div>
-          </CardContent>
-        </Card>
-
-        {/* Comments Dialog */}
-        <Dialog open={!!selectedIssue} onOpenChange={() => setSelectedIssue(null)}>
-          <DialogContent className="sm:max-w-[600px]">
-            <DialogHeader>
-              <DialogTitle>{selectedIssue?.title}</DialogTitle>
-              <DialogDescription>
-                Issue comments and communication
-              </DialogDescription>
-            </DialogHeader>
-            <div className="space-y-4 max-h-96 overflow-y-auto">
-              {selectedIssue && comments[selectedIssue.id]?.map((comment) => (
-                <div key={comment.id} className="border rounded-lg p-3">
-                  <div className="flex justify-between items-start mb-2">
-                    <span className="font-medium text-sm">{comment.userName}</span>
-                    <span className="text-xs text-gray-500">
-                      {new Date(comment.createdAt).toLocaleDateString()}
-                    </span>
-                  </div>
-                  <p className="text-sm text-gray-700">{comment.content}</p>
-                </div>
-              ))}
-            </div>
-            <div className="space-y-3 pt-4 border-t">
-              <Textarea
-                placeholder="Add a comment..."
-                value={newComment}
-                onChange={(e) => setNewComment(e.target.value)}
-              />
-              <Button onClick={() => selectedIssue && addComment(selectedIssue.id)}>
-                Add Comment
-              </Button>
-            </div>
-          </DialogContent>
-        </Dialog>
+                </CardContent>
+              </Card>
+            ) : (
+              <Card className="border-0 shadow-xl bg-white/80 backdrop-blur-sm">
+                <CardContent className="p-12 text-center text-gray-500">
+                  <MessageSquare className="w-12 h-12 mx-auto mb-4 text-gray-300" />
+                  <h3 className="text-lg font-medium mb-2">Select an Issue</h3>
+                  <p className="text-sm">Click on an issue to view details and comments</p>
+                </CardContent>
+              </Card>
+            )}
+          </div>
+        </div>
       </div>
     </div>
   );

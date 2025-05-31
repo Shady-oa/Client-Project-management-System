@@ -7,16 +7,30 @@ import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Clock, AlertCircle, CheckCircle, MessageSquare, Download, Play, Plus } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { useUser } from "@/contexts/UserContext";
-import { useProjects } from "@/hooks/useProjects";
+import { supabase } from "@/integrations/supabase/client";
+import { toast } from "sonner";
+
+interface Project {
+  id: string;
+  name: string;
+  description: string;
+  status: string;
+  progress: number;
+  budget: number;
+  spent: number;
+  phase?: string;
+  nextMilestone?: string;
+  lastUpdate: string;
+  dueDate?: string;
+  client: string;
+  companyId: string;
+}
 
 const ClientDashboard = () => {
   const navigate = useNavigate();
   const { user } = useUser();
-  const { projects, loading } = useProjects();
-
-  // Filter projects for the current client
-  const myProjects = projects.filter(project => project.clientId === user?.id);
-
+  const [projects, setProjects] = useState<Project[]>([]);
+  const [loading, setLoading] = useState(false);
   const [recentUpdates] = useState([
     {
       id: 1,
@@ -28,11 +42,55 @@ const ClientDashboard = () => {
     }
   ]);
 
+  const fetchMyProjects = async () => {
+    if (!user) return;
+
+    setLoading(true);
+    try {
+      const { data, error } = await supabase
+        .from('projects')
+        .select('*')
+        .eq('client_id', user.id)
+        .order('created_at', { ascending: false });
+
+      if (error) throw error;
+
+      const formattedProjects: Project[] = data.map(project => ({
+        id: project.id,
+        name: project.name,
+        description: project.description || '',
+        status: project.status,
+        progress: project.progress,
+        budget: Number(project.budget) || 0,
+        spent: Number(project.spent) || 0,
+        phase: project.phase || 'Planning',
+        nextMilestone: project.next_milestone || 'To be determined',
+        lastUpdate: new Date(project.updated_at).toISOString().split('T')[0],
+        dueDate: project.due_date,
+        client: project.client,
+        companyId: project.company_id
+      }));
+
+      setProjects(formattedProjects);
+    } catch (error) {
+      console.error('Error fetching projects:', error);
+      toast.error('Failed to fetch projects');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    if (user) {
+      fetchMyProjects();
+    }
+  }, [user]);
+
   const stats = [
-    { title: "Active Projects", value: myProjects.filter(p => p.status === 'In Progress').length.toString(), icon: Clock, change: "On schedule", color: "bg-emerald-50 text-emerald-600" },
-    { title: "Total Investment", value: `KES ${myProjects.reduce((sum, p) => sum + p.budget, 0).toLocaleString()}`, icon: CheckCircle, change: "Within budget", color: "bg-blue-50 text-blue-600" },
-    { title: "Avg. Progress", value: `${Math.round(myProjects.reduce((sum, p) => sum + p.progress, 0) / Math.max(myProjects.length, 1))}%`, icon: AlertCircle, change: "Ahead of timeline", color: "bg-amber-50 text-amber-600" },
-    { title: "Completed Projects", value: myProjects.filter(p => p.status === 'Completed').length.toString(), icon: MessageSquare, change: "This quarter", color: "bg-green-50 text-green-600" }
+    { title: "Active Projects", value: projects.filter(p => p.status === 'In Progress').length.toString(), icon: Clock, change: "On schedule", color: "bg-emerald-50 text-emerald-600" },
+    { title: "Total Investment", value: `KES ${projects.reduce((sum, p) => sum + p.budget, 0).toLocaleString()}`, icon: CheckCircle, change: "Within budget", color: "bg-blue-50 text-blue-600" },
+    { title: "Avg. Progress", value: `${Math.round(projects.reduce((sum, p) => sum + p.progress, 0) / Math.max(projects.length, 1))}%`, icon: AlertCircle, change: "Ahead of timeline", color: "bg-amber-50 text-amber-600" },
+    { title: "Completed Projects", value: projects.filter(p => p.status === 'Completed').length.toString(), icon: MessageSquare, change: "This quarter", color: "bg-green-50 text-green-600" }
   ];
 
   const handleProjectClick = (projectId: string) => {
@@ -140,7 +198,7 @@ const ClientDashboard = () => {
               </CardHeader>
               <CardContent className="p-0">
                 <div className="divide-y divide-emerald-100">
-                  {myProjects.length > 0 ? myProjects.map((project, index) => (
+                  {projects.length > 0 ? projects.map((project, index) => (
                     <div 
                       key={project.id} 
                       className="p-6 hover:bg-emerald-50/50 transition-all duration-200 cursor-pointer animate-fade-in"
@@ -161,10 +219,10 @@ const ClientDashboard = () => {
                           
                           <div className="grid grid-cols-2 gap-4 text-sm text-gray-600 mb-4">
                             <div>
-                              <span className="font-medium">Current Phase:</span> {project.phase || 'Planning'}
+                              <span className="font-medium">Current Phase:</span> {project.phase}
                             </div>
                             <div>
-                              <span className="font-medium">Next Milestone:</span> {project.nextMilestone || 'To be determined'}
+                              <span className="font-medium">Next Milestone:</span> {project.nextMilestone}
                             </div>
                             <div>
                               <span className="font-medium">Due Date:</span> {project.dueDate || 'Not set'}

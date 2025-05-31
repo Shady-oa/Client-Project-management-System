@@ -4,13 +4,13 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
-import { Briefcase, Users, Clock, CheckCircle, Plus, Settings, User, Bell, Edit } from "lucide-react";
+import { Briefcase, Users, Clock, CheckCircle, Plus, Settings, User, Bell, Edit, MoreVertical, Trash2, UserX } from "lucide-react";
 import { Link, useNavigate } from "react-router-dom";
 import { useUser } from "@/contexts/UserContext";
 import { useProjects } from "@/hooks/useProjects";
 import { useTeamMembers } from "@/hooks/useTeamMembers";
 import { TeamMemberDialog } from "@/components/TeamMemberDialog";
-import NotificationToast from "@/components/NotificationToast";
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 
@@ -30,6 +30,7 @@ const CompanyDashboard = () => {
   const [notifications, setNotifications] = useState([]);
   const [selectedMember, setSelectedMember] = useState(null);
   const [isTeamDialogOpen, setIsTeamDialogOpen] = useState(false);
+  const [companyName, setCompanyName] = useState("");
 
   const fetchNotifications = async () => {
     if (!user) return;
@@ -49,9 +50,28 @@ const CompanyDashboard = () => {
     }
   };
 
+  const fetchCompanyName = async () => {
+    if (!user?.companyId) return;
+
+    try {
+      // Get company name from the registered companies
+      const companies = {
+        "catech": "CATECH",
+        "innovatecorp": "InnovateCorp",
+        "digitalsolutions": "DigitalSolutions",
+        "techforward": "TechForward"
+      };
+      
+      setCompanyName(companies[user.companyId] || user.companyId.toUpperCase());
+    } catch (error) {
+      console.error('Error fetching company name:', error);
+    }
+  };
+
   useEffect(() => {
     if (user) {
       fetchNotifications();
+      fetchCompanyName();
     }
   }, [user]);
 
@@ -124,6 +144,24 @@ const CompanyDashboard = () => {
     }
   };
 
+  const handleDeleteMember = async (memberId: string) => {
+    try {
+      await deleteTeamMember(memberId);
+      toast.success('Team member deleted successfully');
+    } catch (error) {
+      toast.error('Failed to delete team member');
+    }
+  };
+
+  const handleDeactivateMember = async (memberId: string) => {
+    try {
+      await deactivateTeamMember(memberId);
+      toast.success('Team member deactivated successfully');
+    } catch (error) {
+      toast.error('Failed to deactivate team member');
+    }
+  };
+
   const getStatusColor = (status: string) => {
     switch (status) {
       case "In Progress": return "bg-blue-100 text-blue-800";
@@ -158,7 +196,6 @@ const CompanyDashboard = () => {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-emerald-50 to-amber-50">
-      <NotificationToast />
       <div className="max-w-7xl mx-auto p-6">
         {/* Header */}
         <div className="mb-8">
@@ -167,7 +204,7 @@ const CompanyDashboard = () => {
               <h1 className="text-4xl font-bold bg-gradient-to-r from-emerald-600 to-amber-600 bg-clip-text text-transparent">
                 Company Dashboard
               </h1>
-              <p className="text-gray-600 mt-2">Welcome back to {user?.companyName || "Your Company"}</p>
+              <p className="text-gray-600 mt-2">Welcome back to {companyName || "Your Company"}</p>
               {notifications.length > 0 && (
                 <div className="flex items-center gap-2 mt-2">
                   <Bell className="w-4 h-4 text-amber-600" />
@@ -358,14 +395,30 @@ const CompanyDashboard = () => {
                         <Badge variant="outline" className="border-emerald-300 text-emerald-700">
                           {member.projects.length} projects
                         </Badge>
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          onClick={() => handleEditMember(member)}
-                          className="p-1 h-auto"
-                        >
-                          <Edit className="w-4 h-4" />
-                        </Button>
+                        <DropdownMenu>
+                          <DropdownMenuTrigger asChild>
+                            <Button variant="ghost" size="sm" className="p-1 h-auto">
+                              <MoreVertical className="w-4 h-4" />
+                            </Button>
+                          </DropdownMenuTrigger>
+                          <DropdownMenuContent align="end">
+                            <DropdownMenuItem onClick={() => handleEditMember(member)}>
+                              <Edit className="w-4 h-4 mr-2" />
+                              Edit
+                            </DropdownMenuItem>
+                            <DropdownMenuItem onClick={() => handleDeactivateMember(member.id)}>
+                              <UserX className="w-4 h-4 mr-2" />
+                              Deactivate
+                            </DropdownMenuItem>
+                            <DropdownMenuItem 
+                              onClick={() => handleDeleteMember(member.id)}
+                              className="text-red-600"
+                            >
+                              <Trash2 className="w-4 h-4 mr-2" />
+                              Delete
+                            </DropdownMenuItem>
+                          </DropdownMenuContent>
+                        </DropdownMenu>
                       </div>
                     </div>
                   ))}

@@ -32,7 +32,7 @@ export const useTeamMembers = () => {
     try {
       let query = supabase.from('team_members').select('*');
       
-      if (isCompany) {
+      if (isCompany && user.companyId) {
         query = query.eq('company_id', user.companyId);
       }
       // Admin sees all team members
