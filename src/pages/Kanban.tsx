@@ -1,5 +1,5 @@
 
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -9,7 +9,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Slider } from "@/components/ui/slider";
-import { Plus, MoreVertical, User, Calendar, Target, Users } from "lucide-react";
+import { Calendar, Users } from "lucide-react";
 import { DragDropContext, Droppable, Draggable } from "react-beautiful-dnd";
 import { useUser } from "@/contexts/UserContext";
 import { useProjects } from "@/hooks/useProjects";
@@ -35,11 +35,16 @@ const Kanban = () => {
     if (!result.destination) return;
 
     const { source, destination, draggableId } = result;
-    
     if (source.droppableId === destination.droppableId) return;
 
     const newStatus = destination.droppableId;
-    await updateProject(draggableId, { status: newStatus });
+    
+    try {
+      await updateProject(draggableId, { status: newStatus });
+      toast.success(`Project moved to ${newStatus}`);
+    } catch (error) {
+      toast.error('Failed to update project status');
+    }
   };
 
   const handleProjectClick = (project) => {
@@ -53,16 +58,20 @@ const Kanban = () => {
   const handleSaveProject = async () => {
     if (!selectedProject) return;
 
-    await updateProject(selectedProject.id, {
-      name: selectedProject.name,
-      progress: selectedProject.progress,
-      assignedTo: selectedProject.assignedMembers,
-      priority: selectedProject.priority,
-      dueDate: selectedProject.dueDate
-    });
-
-    setIsEditDialogOpen(false);
-    setSelectedProject(null);
+    try {
+      await updateProject(selectedProject.id, {
+        name: selectedProject.name,
+        progress: selectedProject.progress,
+        assignedTo: selectedProject.assignedMembers,
+        priority: selectedProject.priority,
+        dueDate: selectedProject.dueDate
+      });
+      setIsEditDialogOpen(false);
+      setSelectedProject(null);
+      toast.success('Project updated successfully');
+    } catch (error) {
+      toast.error('Failed to update project');
+    }
   };
 
   const getStatusColor = (status) => {
@@ -136,72 +145,64 @@ const Kanban = () => {
                                 ref={provided.innerRef}
                                 {...provided.draggableProps}
                                 {...provided.dragHandleProps}
-                                className={`cursor-pointer transition-all duration-200 hover:shadow-lg bg-white/90 backdrop-blur-sm ${
+                                className={`cursor-pointer transition-all duration-200 hover:shadow-lg ${
                                   snapshot.isDragging ? 'rotate-2 shadow-xl' : ''
                                 }`}
                                 onClick={() => handleProjectClick(project)}
                               >
                                 <CardHeader className="pb-3">
                                   <div className="flex items-start justify-between">
-                                    <CardTitle className="text-lg text-gray-900 line-clamp-2">
+                                    <CardTitle className="text-sm font-medium line-clamp-2">
                                       {project.name}
                                     </CardTitle>
                                     <Badge className={getPriorityColor(project.priority)}>
                                       {project.priority}
                                     </Badge>
                                   </div>
-                                  <CardDescription className="line-clamp-2">
-                                    {project.description}
-                                  </CardDescription>
                                 </CardHeader>
                                 <CardContent className="pt-0">
                                   <div className="space-y-3">
-                                    <div>
-                                      <div className="flex justify-between text-sm mb-1">
-                                        <span className="text-gray-600">Progress</span>
-                                        <span className="font-medium">{project.progress}%</span>
+                                    <div className="flex items-center gap-2 text-xs text-gray-600">
+                                      <Users className="w-3 h-3" />
+                                      {project.assignedTo?.length || 0} members
+                                    </div>
+                                    
+                                    <div className="space-y-1">
+                                      <div className="flex justify-between text-xs">
+                                        <span>Progress</span>
+                                        <span>{project.progress}%</span>
                                       </div>
-                                      <div className="w-full bg-gray-200 rounded-full h-2">
-                                        <div 
-                                          className="bg-gradient-to-r from-emerald-500 to-amber-500 h-2 rounded-full transition-all duration-500"
+                                      <div className="w-full bg-gray-200 rounded-full h-1.5">
+                                        <div
+                                          className="bg-emerald-500 h-1.5 rounded-full transition-all duration-300"
                                           style={{ width: `${project.progress}%` }}
                                         />
                                       </div>
                                     </div>
-
-                                    <div className="flex items-center justify-between text-sm text-gray-600">
-                                      <div className="flex items-center gap-1">
-                                        <Calendar className="w-4 h-4" />
-                                        <span>{project.dueDate || 'No due date'}</span>
+                                    
+                                    {project.dueDate && (
+                                      <div className="flex items-center gap-1 text-xs text-gray-500">
+                                        <Calendar className="w-3 h-3" />
+                                        Due {new Date(project.dueDate).toLocaleDateString()}
                                       </div>
-                                      <div className="flex items-center gap-1">
-                                        <Users className="w-4 h-4" />
-                                        <span>{project.assignedTo?.length || 0}</span>
-                                      </div>
-                                    </div>
-
-                                    <div className="flex items-center justify-between">
-                                      <div className="text-sm font-medium text-emerald-600">
-                                        KES {project.budget.toLocaleString()}
-                                      </div>
-                                      <div className="flex -space-x-2">
-                                        {project.assignedTo?.slice(0, 3).map((memberId, i) => {
-                                          const member = teamMembers.find(m => m.id === memberId);
-                                          if (!member) return null;
-                                          return (
-                                            <Avatar key={i} className="w-6 h-6 border-2 border-white">
-                                              <AvatarFallback className="bg-gradient-to-br from-emerald-400 to-amber-400 text-white text-xs">
-                                                {member.avatar}
-                                              </AvatarFallback>
-                                            </Avatar>
-                                          );
-                                        })}
-                                        {project.assignedTo?.length > 3 && (
-                                          <div className="w-6 h-6 bg-gray-200 rounded-full border-2 border-white flex items-center justify-center text-xs text-gray-600">
-                                            +{project.assignedTo.length - 3}
-                                          </div>
-                                        )}
-                                      </div>
+                                    )}
+                                    
+                                    <div className="flex items-center gap-1">
+                                      {project.assignedTo?.slice(0, 3).map((memberId, idx) => {
+                                        const member = teamMembers.find(m => m.id === memberId);
+                                        return (
+                                          <Avatar key={idx} className="w-6 h-6">
+                                            <AvatarFallback className="bg-emerald-500 text-white text-xs">
+                                              {member?.avatar || 'U'}
+                                            </AvatarFallback>
+                                          </Avatar>
+                                        );
+                                      })}
+                                      {project.assignedTo?.length > 3 && (
+                                        <span className="text-xs text-gray-500 ml-1">
+                                          +{project.assignedTo.length - 3}
+                                        </span>
+                                      )}
                                     </div>
                                   </div>
                                 </CardContent>
@@ -209,8 +210,8 @@ const Kanban = () => {
                             )}
                           </Draggable>
                         ))}
+                        {provided.placeholder}
                       </div>
-                      {provided.placeholder}
                     </div>
                   )}
                 </Droppable>
@@ -226,31 +227,18 @@ const Kanban = () => {
               <DialogHeader>
                 <DialogTitle>Edit Project</DialogTitle>
                 <DialogDescription>
-                  Update project details and assignments
+                  Update project details and track progress
                 </DialogDescription>
               </DialogHeader>
               
-              <div className="space-y-6">
+              <div className="space-y-4">
                 <div>
-                  <Label htmlFor="projectName">Project Name</Label>
+                  <Label htmlFor="name">Project Name</Label>
                   <Input
-                    id="projectName"
+                    id="name"
                     value={selectedProject.name}
                     onChange={(e) => setSelectedProject(prev => ({ ...prev, name: e.target.value }))}
                   />
-                </div>
-
-                <div>
-                  <Label htmlFor="progress">Progress ({selectedProject.progress}%)</Label>
-                  <div className="mt-2">
-                    <Slider
-                      value={[selectedProject.progress]}
-                      onValueChange={(value) => setSelectedProject(prev => ({ ...prev, progress: value[0] }))}
-                      max={100}
-                      step={5}
-                      className="w-full"
-                    />
-                  </div>
                 </div>
 
                 <div>
@@ -272,42 +260,45 @@ const Kanban = () => {
                 </div>
 
                 <div>
+                  <Label htmlFor="progress">Progress: {selectedProject.progress}%</Label>
+                  <Slider
+                    value={[selectedProject.progress]}
+                    onValueChange={(value) => setSelectedProject(prev => ({ ...prev, progress: value[0] }))}
+                    max={100}
+                    step={5}
+                    className="mt-2"
+                  />
+                </div>
+
+                <div>
                   <Label htmlFor="dueDate">Due Date</Label>
                   <Input
                     id="dueDate"
                     type="date"
-                    value={selectedProject.dueDate}
+                    value={selectedProject.dueDate || ''}
                     onChange={(e) => setSelectedProject(prev => ({ ...prev, dueDate: e.target.value }))}
                   />
                 </div>
 
                 <div>
                   <Label>Assigned Team Members</Label>
-                  <div className="grid grid-cols-2 gap-2 mt-2 max-h-40 overflow-y-auto">
-                    {teamMembers.filter(m => m.status === 'Active').map(member => (
+                  <div className="grid grid-cols-2 gap-2 mt-2">
+                    {teamMembers.filter(m => m.status === 'Active').map((member) => (
                       <div key={member.id} className="flex items-center space-x-2">
                         <input
                           type="checkbox"
-                          id={`member-${member.id}`}
-                          checked={selectedProject.assignedMembers.includes(member.id)}
+                          checked={selectedProject.assignedMembers?.includes(member.id) || false}
                           onChange={(e) => {
-                            if (e.target.checked) {
-                              setSelectedProject(prev => ({
-                                ...prev,
-                                assignedMembers: [...prev.assignedMembers, member.id]
-                              }));
-                            } else {
-                              setSelectedProject(prev => ({
-                                ...prev,
-                                assignedMembers: prev.assignedMembers.filter(id => id !== member.id)
-                              }));
-                            }
+                            const checked = e.target.checked;
+                            setSelectedProject(prev => ({
+                              ...prev,
+                              assignedMembers: checked
+                                ? [...(prev.assignedMembers || []), member.id]
+                                : (prev.assignedMembers || []).filter(id => id !== member.id)
+                            }));
                           }}
-                          className="rounded border-gray-300"
                         />
-                        <label htmlFor={`member-${member.id}`} className="text-sm">
-                          {member.name}
-                        </label>
+                        <span className="text-sm">{member.name}</span>
                       </div>
                     ))}
                   </div>

@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -42,9 +41,8 @@ const Issues = () => {
         .select(`
           *,
           projects:project_id (name, client),
-          creator:created_by (
-            id,
-            profiles (full_name, email)
+          creator:created_by!inner (
+            id
           )
         `);
 
@@ -72,7 +70,9 @@ const Issues = () => {
         .from('issue_comments')
         .select(`
           *,
-          profiles:user_id (full_name, email)
+          user_profile:user_id!inner (
+            id
+          )
         `)
         .eq('issue_id', issueId)
         .order('created_at', { ascending: true });
@@ -209,11 +209,18 @@ const Issues = () => {
   };
 
   const getUserName = (comment) => {
-    return comment.profiles?.full_name || 'Unknown User';
+    // Get user name from profiles table or fallback
+    if (comment.user_id === user?.id) {
+      return user.name || 'You';
+    }
+    return 'Team Member';
   };
 
   const getUserEmail = (comment) => {
-    return comment.profiles?.email || '';
+    if (comment.user_id === user?.id) {
+      return user.email || '';
+    }
+    return '';
   };
 
   useEffect(() => {

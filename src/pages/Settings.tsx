@@ -1,49 +1,158 @@
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Label } from "@/components/ui/label";
+import { Separator } from "@/components/ui/separator";
 import { Badge } from "@/components/ui/badge";
-import { Settings as SettingsIcon, Bell, Moon, Globe, Shield, Trash2, Download, Upload } from "lucide-react";
+import { 
+  Settings as SettingsIcon, 
+  Bell, 
+  Shield, 
+  Palette, 
+  Globe, 
+  Moon, 
+  Sun, 
+  Save,
+  AlertTriangle
+} from "lucide-react";
 import { useUser } from "@/contexts/UserContext";
+import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 
 const Settings = () => {
-  const { user, isAdmin, isCompany, isClient } = useUser();
+  const { user, isAdmin, isCompany } = useUser();
+  const [loading, setLoading] = useState(false);
   const [settings, setSettings] = useState({
+    theme: "light",
+    language: "en",
     notifications: {
       email: true,
-      push: false,
+      push: true,
+      desktop: false,
       projectUpdates: true,
-      teamUpdates: true,
-      systemAlerts: false
-    },
-    appearance: {
-      theme: "light",
-      language: "en",
-      timezone: "UTC"
+      teamMessages: true,
+      systemAlerts: true
     },
     privacy: {
-      profileVisibility: "team",
-      activityStatus: true,
-      dataCollection: false
+      profileVisible: true,
+      activityVisible: false,
+      onlineStatus: true
+    },
+    preferences: {
+      autoSave: true,
+      compactView: false,
+      showTips: true
     }
   });
 
-  const saveSettings = () => {
-    // In a real app, this would save to the database
-    toast.success('Settings saved successfully');
+  useEffect(() => {
+    loadSettings();
+  }, [user]);
+
+  const loadSettings = async () => {
+    if (!user) return;
+
+    try {
+      // Load user settings from localStorage or database
+      const savedSettings = localStorage.getItem(`settings_${user.id}`);
+      if (savedSettings) {
+        setSettings(JSON.parse(savedSettings));
+      }
+    } catch (error) {
+      console.error('Error loading settings:', error);
+    }
   };
 
-  const exportData = () => {
-    toast.success('Data export started. You will receive an email when ready.');
+  const saveSettings = async () => {
+    if (!user) return;
+
+    setLoading(true);
+    try {
+      // Save settings to localStorage (in a real app, you'd save to database)
+      localStorage.setItem(`settings_${user.id}`, JSON.stringify(settings));
+      
+      // Apply theme
+      document.documentElement.classList.toggle('dark', settings.theme === 'dark');
+      
+      toast.success('Settings saved successfully');
+    } catch (error) {
+      console.error('Error saving settings:', error);
+      toast.error('Failed to save settings');
+    } finally {
+      setLoading(false);
+    }
   };
 
-  const deleteAccount = () => {
-    toast.error('Account deletion requires admin approval');
+  const resetSettings = () => {
+    setSettings({
+      theme: "light",
+      language: "en",
+      notifications: {
+        email: true,
+        push: true,
+        desktop: false,
+        projectUpdates: true,
+        teamMessages: true,
+        systemAlerts: true
+      },
+      privacy: {
+        profileVisible: true,
+        activityVisible: false,
+        onlineStatus: true
+      },
+      preferences: {
+        autoSave: true,
+        compactView: false,
+        showTips: true
+      }
+    });
+    toast.success('Settings reset to default');
   };
+
+  const handleNotificationChange = (key: string, value: boolean) => {
+    setSettings(prev => ({
+      ...prev,
+      notifications: {
+        ...prev.notifications,
+        [key]: value
+      }
+    }));
+  };
+
+  const handlePrivacyChange = (key: string, value: boolean) => {
+    setSettings(prev => ({
+      ...prev,
+      privacy: {
+        ...prev.privacy,
+        [key]: value
+      }
+    }));
+  };
+
+  const handlePreferenceChange = (key: string, value: boolean) => {
+    setSettings(prev => ({
+      ...prev,
+      preferences: {
+        ...prev.preferences,
+        [key]: value
+      }
+    }));
+  };
+
+  if (!user) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-emerald-50 to-amber-50 flex items-center justify-center">
+        <div className="text-center">
+          <div className="w-8 h-8 animate-spin mx-auto mb-4 border-4 border-emerald-600 border-t-transparent rounded-full" />
+          <p className="text-gray-600">Loading settings...</p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-emerald-50 to-amber-50">
@@ -52,318 +161,274 @@ const Settings = () => {
           <h1 className="text-4xl font-bold bg-gradient-to-r from-emerald-600 to-amber-600 bg-clip-text text-transparent">
             Settings
           </h1>
-          <p className="text-gray-600 mt-2">Manage your account preferences and privacy settings</p>
+          <p className="text-gray-600 mt-2">Customize your account preferences and notifications</p>
         </div>
 
         <div className="space-y-6">
-          {/* Notifications */}
+          {/* Appearance Settings */}
           <Card className="border-0 shadow-xl bg-white/80 backdrop-blur-sm">
             <CardHeader className="border-b border-emerald-100 bg-gradient-to-r from-emerald-50 to-amber-50">
               <div className="flex items-center gap-3">
-                <div className="w-10 h-10 bg-gradient-to-r from-emerald-500 to-amber-500 rounded-lg flex items-center justify-center">
-                  <Bell className="w-5 h-5 text-white" />
+                <div className="p-2 bg-emerald-100 rounded-lg">
+                  <Palette className="w-5 h-5 text-emerald-600" />
                 </div>
                 <div>
-                  <CardTitle className="text-xl text-emerald-700">Notifications</CardTitle>
-                  <CardDescription>Choose what notifications you want to receive</CardDescription>
+                  <CardTitle className="text-emerald-700">Appearance</CardTitle>
+                  <CardDescription>Customize how the interface looks</CardDescription>
                 </div>
               </div>
             </CardHeader>
-            <CardContent className="p-6">
-              <div className="space-y-6">
+            <CardContent className="p-6 space-y-6">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div>
+                  <Label htmlFor="theme" className="text-sm font-medium text-gray-700 mb-2 block">
+                    Theme
+                  </Label>
+                  <Select value={settings.theme} onValueChange={(value) => setSettings(prev => ({ ...prev, theme: value }))}>
+                    <SelectTrigger>
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="light">
+                        <div className="flex items-center gap-2">
+                          <Sun className="w-4 h-4" />
+                          Light
+                        </div>
+                      </SelectItem>
+                      <SelectItem value="dark">
+                        <div className="flex items-center gap-2">
+                          <Moon className="w-4 h-4" />
+                          Dark
+                        </div>
+                      </SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                <div>
+                  <Label htmlFor="language" className="text-sm font-medium text-gray-700 mb-2 block">
+                    Language
+                  </Label>
+                  <Select value={settings.language} onValueChange={(value) => setSettings(prev => ({ ...prev, language: value }))}>
+                    <SelectTrigger>
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="en">🇺🇸 English</SelectItem>
+                      <SelectItem value="es">🇪🇸 Español</SelectItem>
+                      <SelectItem value="fr">🇫🇷 Français</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* Notification Settings */}
+          <Card className="border-0 shadow-xl bg-white/80 backdrop-blur-sm">
+            <CardHeader className="border-b border-emerald-100 bg-gradient-to-r from-emerald-50 to-amber-50">
+              <div className="flex items-center gap-3">
+                <div className="p-2 bg-blue-100 rounded-lg">
+                  <Bell className="w-5 h-5 text-blue-600" />
+                </div>
+                <div>
+                  <CardTitle className="text-emerald-700">Notifications</CardTitle>
+                  <CardDescription>Control when and how you receive notifications</CardDescription>
+                </div>
+              </div>
+            </CardHeader>
+            <CardContent className="p-6 space-y-6">
+              <div className="space-y-4">
                 <div className="flex items-center justify-between">
                   <div>
-                    <Label className="text-base font-medium">Email Notifications</Label>
-                    <p className="text-sm text-gray-600">Receive notifications via email</p>
+                    <Label className="text-sm font-medium text-gray-700">Email Notifications</Label>
+                    <p className="text-xs text-gray-500">Receive notifications via email</p>
                   </div>
                   <Switch
                     checked={settings.notifications.email}
-                    onCheckedChange={(checked) => 
-                      setSettings(prev => ({
-                        ...prev,
-                        notifications: { ...prev.notifications, email: checked }
-                      }))
-                    }
+                    onCheckedChange={(checked) => handleNotificationChange('email', checked)}
                   />
                 </div>
 
                 <div className="flex items-center justify-between">
                   <div>
-                    <Label className="text-base font-medium">Push Notifications</Label>
-                    <p className="text-sm text-gray-600">Receive push notifications in browser</p>
+                    <Label className="text-sm font-medium text-gray-700">Push Notifications</Label>
+                    <p className="text-xs text-gray-500">Receive browser push notifications</p>
                   </div>
                   <Switch
                     checked={settings.notifications.push}
-                    onCheckedChange={(checked) => 
-                      setSettings(prev => ({
-                        ...prev,
-                        notifications: { ...prev.notifications, push: checked }
-                      }))
-                    }
+                    onCheckedChange={(checked) => handleNotificationChange('push', checked)}
                   />
                 </div>
 
                 <div className="flex items-center justify-between">
                   <div>
-                    <Label className="text-base font-medium">Project Updates</Label>
-                    <p className="text-sm text-gray-600">Get notified about project progress</p>
+                    <Label className="text-sm font-medium text-gray-700">Desktop Notifications</Label>
+                    <p className="text-xs text-gray-500">Show desktop notifications</p>
+                  </div>
+                  <Switch
+                    checked={settings.notifications.desktop}
+                    onCheckedChange={(checked) => handleNotificationChange('desktop', checked)}
+                  />
+                </div>
+
+                <Separator />
+
+                <div className="flex items-center justify-between">
+                  <div>
+                    <Label className="text-sm font-medium text-gray-700">Project Updates</Label>
+                    <p className="text-xs text-gray-500">Notifications for project changes</p>
                   </div>
                   <Switch
                     checked={settings.notifications.projectUpdates}
-                    onCheckedChange={(checked) => 
-                      setSettings(prev => ({
-                        ...prev,
-                        notifications: { ...prev.notifications, projectUpdates: checked }
-                      }))
-                    }
+                    onCheckedChange={(checked) => handleNotificationChange('projectUpdates', checked)}
                   />
                 </div>
 
                 <div className="flex items-center justify-between">
                   <div>
-                    <Label className="text-base font-medium">Team Updates</Label>
-                    <p className="text-sm text-gray-600">Get notified about team activities</p>
+                    <Label className="text-sm font-medium text-gray-700">Team Messages</Label>
+                    <p className="text-xs text-gray-500">Notifications for team communications</p>
                   </div>
                   <Switch
-                    checked={settings.notifications.teamUpdates}
-                    onCheckedChange={(checked) => 
-                      setSettings(prev => ({
-                        ...prev,
-                        notifications: { ...prev.notifications, teamUpdates: checked }
-                      }))
-                    }
-                  />
-                </div>
-
-                {isAdmin && (
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <Label className="text-base font-medium">System Alerts</Label>
-                      <p className="text-sm text-gray-600">Critical system notifications</p>
-                      <Badge variant="outline" className="mt-1 text-xs">Admin Only</Badge>
-                    </div>
-                    <Switch
-                      checked={settings.notifications.systemAlerts}
-                      onCheckedChange={(checked) => 
-                        setSettings(prev => ({
-                          ...prev,
-                          notifications: { ...prev.notifications, systemAlerts: checked }
-                        }))
-                      }
-                    />
-                  </div>
-                )}
-              </div>
-            </CardContent>
-          </Card>
-
-          {/* Appearance */}
-          <Card className="border-0 shadow-xl bg-white/80 backdrop-blur-sm">
-            <CardHeader className="border-b border-emerald-100 bg-gradient-to-r from-emerald-50 to-amber-50">
-              <div className="flex items-center gap-3">
-                <div className="w-10 h-10 bg-gradient-to-r from-blue-500 to-purple-500 rounded-lg flex items-center justify-center">
-                  <Moon className="w-5 h-5 text-white" />
-                </div>
-                <div>
-                  <CardTitle className="text-xl text-emerald-700">Appearance</CardTitle>
-                  <CardDescription>Customize how the app looks and feels</CardDescription>
-                </div>
-              </div>
-            </CardHeader>
-            <CardContent className="p-6">
-              <div className="space-y-6">
-                <div>
-                  <Label className="text-base font-medium mb-3 block">Theme</Label>
-                  <Select 
-                    value={settings.appearance.theme} 
-                    onValueChange={(value) => 
-                      setSettings(prev => ({
-                        ...prev,
-                        appearance: { ...prev.appearance, theme: value }
-                      }))
-                    }
-                  >
-                    <SelectTrigger>
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="light">Light</SelectItem>
-                      <SelectItem value="dark">Dark</SelectItem>
-                      <SelectItem value="system">System</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-
-                <div>
-                  <Label className="text-base font-medium mb-3 block">Language</Label>
-                  <Select 
-                    value={settings.appearance.language} 
-                    onValueChange={(value) => 
-                      setSettings(prev => ({
-                        ...prev,
-                        appearance: { ...prev.appearance, language: value }
-                      }))
-                    }
-                  >
-                    <SelectTrigger>
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="en">English</SelectItem>
-                      <SelectItem value="es">Español</SelectItem>
-                      <SelectItem value="fr">Français</SelectItem>
-                      <SelectItem value="de">Deutsch</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-
-                <div>
-                  <Label className="text-base font-medium mb-3 block">Timezone</Label>
-                  <Select 
-                    value={settings.appearance.timezone} 
-                    onValueChange={(value) => 
-                      setSettings(prev => ({
-                        ...prev,
-                        appearance: { ...prev.appearance, timezone: value }
-                      }))
-                    }
-                  >
-                    <SelectTrigger>
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="UTC">UTC</SelectItem>
-                      <SelectItem value="America/New_York">Eastern Time</SelectItem>
-                      <SelectItem value="America/Chicago">Central Time</SelectItem>
-                      <SelectItem value="America/Denver">Mountain Time</SelectItem>
-                      <SelectItem value="America/Los_Angeles">Pacific Time</SelectItem>
-                      <SelectItem value="Europe/London">London</SelectItem>
-                      <SelectItem value="Europe/Paris">Paris</SelectItem>
-                      <SelectItem value="Asia/Tokyo">Tokyo</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-
-          {/* Privacy */}
-          <Card className="border-0 shadow-xl bg-white/80 backdrop-blur-sm">
-            <CardHeader className="border-b border-emerald-100 bg-gradient-to-r from-emerald-50 to-amber-50">
-              <div className="flex items-center gap-3">
-                <div className="w-10 h-10 bg-gradient-to-r from-red-500 to-pink-500 rounded-lg flex items-center justify-center">
-                  <Shield className="w-5 h-5 text-white" />
-                </div>
-                <div>
-                  <CardTitle className="text-xl text-emerald-700">Privacy & Security</CardTitle>
-                  <CardDescription>Control your privacy and data settings</CardDescription>
-                </div>
-              </div>
-            </CardHeader>
-            <CardContent className="p-6">
-              <div className="space-y-6">
-                <div>
-                  <Label className="text-base font-medium mb-3 block">Profile Visibility</Label>
-                  <Select 
-                    value={settings.privacy.profileVisibility} 
-                    onValueChange={(value) => 
-                      setSettings(prev => ({
-                        ...prev,
-                        privacy: { ...prev.privacy, profileVisibility: value }
-                      }))
-                    }
-                  >
-                    <SelectTrigger>
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="public">Public</SelectItem>
-                      <SelectItem value="team">Team Only</SelectItem>
-                      <SelectItem value="private">Private</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-
-                <div className="flex items-center justify-between">
-                  <div>
-                    <Label className="text-base font-medium">Show Activity Status</Label>
-                    <p className="text-sm text-gray-600">Let others see when you're online</p>
-                  </div>
-                  <Switch
-                    checked={settings.privacy.activityStatus}
-                    onCheckedChange={(checked) => 
-                      setSettings(prev => ({
-                        ...prev,
-                        privacy: { ...prev.privacy, activityStatus: checked }
-                      }))
-                    }
+                    checked={settings.notifications.teamMessages}
+                    onCheckedChange={(checked) => handleNotificationChange('teamMessages', checked)}
                   />
                 </div>
 
                 <div className="flex items-center justify-between">
                   <div>
-                    <Label className="text-base font-medium">Analytics & Data Collection</Label>
-                    <p className="text-sm text-gray-600">Help improve the product with usage data</p>
+                    <Label className="text-sm font-medium text-gray-700">System Alerts</Label>
+                    <p className="text-xs text-gray-500">Important system notifications</p>
                   </div>
                   <Switch
-                    checked={settings.privacy.dataCollection}
-                    onCheckedChange={(checked) => 
-                      setSettings(prev => ({
-                        ...prev,
-                        privacy: { ...prev.privacy, dataCollection: checked }
-                      }))
-                    }
+                    checked={settings.notifications.systemAlerts}
+                    onCheckedChange={(checked) => handleNotificationChange('systemAlerts', checked)}
                   />
                 </div>
               </div>
             </CardContent>
           </Card>
 
-          {/* Data & Account */}
+          {/* Privacy Settings */}
           <Card className="border-0 shadow-xl bg-white/80 backdrop-blur-sm">
             <CardHeader className="border-b border-emerald-100 bg-gradient-to-r from-emerald-50 to-amber-50">
               <div className="flex items-center gap-3">
-                <div className="w-10 h-10 bg-gradient-to-r from-orange-500 to-yellow-500 rounded-lg flex items-center justify-center">
-                  <Download className="w-5 h-5 text-white" />
+                <div className="p-2 bg-purple-100 rounded-lg">
+                  <Shield className="w-5 h-5 text-purple-600" />
                 </div>
                 <div>
-                  <CardTitle className="text-xl text-emerald-700">Data & Account</CardTitle>
-                  <CardDescription>Export your data or delete your account</CardDescription>
+                  <CardTitle className="text-emerald-700">Privacy</CardTitle>
+                  <CardDescription>Control your privacy and visibility settings</CardDescription>
                 </div>
               </div>
             </CardHeader>
-            <CardContent className="p-6">
-              <div className="space-y-6">
-                <div className="flex items-center justify-between p-4 border border-gray-200 rounded-lg">
+            <CardContent className="p-6 space-y-6">
+              <div className="space-y-4">
+                <div className="flex items-center justify-between">
                   <div>
-                    <Label className="text-base font-medium">Export Data</Label>
-                    <p className="text-sm text-gray-600">Download all your data in JSON format</p>
+                    <Label className="text-sm font-medium text-gray-700">Profile Visible</Label>
+                    <p className="text-xs text-gray-500">Allow others to see your profile</p>
                   </div>
-                  <Button variant="outline" onClick={exportData} className="border-emerald-300 hover:bg-emerald-50">
-                    <Download className="w-4 h-4 mr-2" />
-                    Export
-                  </Button>
+                  <Switch
+                    checked={settings.privacy.profileVisible}
+                    onCheckedChange={(checked) => handlePrivacyChange('profileVisible', checked)}
+                  />
                 </div>
 
-                <div className="flex items-center justify-between p-4 border border-red-200 rounded-lg bg-red-50">
+                <div className="flex items-center justify-between">
                   <div>
-                    <Label className="text-base font-medium text-red-800">Delete Account</Label>
-                    <p className="text-sm text-red-600">Permanently delete your account and all data</p>
+                    <Label className="text-sm font-medium text-gray-700">Activity Visible</Label>
+                    <p className="text-xs text-gray-500">Show your activity to team members</p>
                   </div>
-                  <Button variant="outline" onClick={deleteAccount} className="border-red-300 text-red-600 hover:bg-red-100">
-                    <Trash2 className="w-4 h-4 mr-2" />
-                    Delete
-                  </Button>
+                  <Switch
+                    checked={settings.privacy.activityVisible}
+                    onCheckedChange={(checked) => handlePrivacyChange('activityVisible', checked)}
+                  />
+                </div>
+
+                <div className="flex items-center justify-between">
+                  <div>
+                    <Label className="text-sm font-medium text-gray-700">Online Status</Label>
+                    <p className="text-xs text-gray-500">Show when you're online</p>
+                  </div>
+                  <Switch
+                    checked={settings.privacy.onlineStatus}
+                    onCheckedChange={(checked) => handlePrivacyChange('onlineStatus', checked)}
+                  />
                 </div>
               </div>
             </CardContent>
           </Card>
 
-          {/* Save Button */}
-          <div className="flex justify-end">
-            <Button onClick={saveSettings} className="bg-emerald-600 hover:bg-emerald-700 shadow-lg">
-              <SettingsIcon className="w-4 h-4 mr-2" />
-              Save Settings
+          {/* Preferences */}
+          <Card className="border-0 shadow-xl bg-white/80 backdrop-blur-sm">
+            <CardHeader className="border-b border-emerald-100 bg-gradient-to-r from-emerald-50 to-amber-50">
+              <div className="flex items-center gap-3">
+                <div className="p-2 bg-amber-100 rounded-lg">
+                  <SettingsIcon className="w-5 h-5 text-amber-600" />
+                </div>
+                <div>
+                  <CardTitle className="text-emerald-700">Preferences</CardTitle>
+                  <CardDescription>General application preferences</CardDescription>
+                </div>
+              </div>
+            </CardHeader>
+            <CardContent className="p-6 space-y-6">
+              <div className="space-y-4">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <Label className="text-sm font-medium text-gray-700">Auto Save</Label>
+                    <p className="text-xs text-gray-500">Automatically save your work</p>
+                  </div>
+                  <Switch
+                    checked={settings.preferences.autoSave}
+                    onCheckedChange={(checked) => handlePreferenceChange('autoSave', checked)}
+                  />
+                </div>
+
+                <div className="flex items-center justify-between">
+                  <div>
+                    <Label className="text-sm font-medium text-gray-700">Compact View</Label>
+                    <p className="text-xs text-gray-500">Use compact interface layout</p>
+                  </div>
+                  <Switch
+                    checked={settings.preferences.compactView}
+                    onCheckedChange={(checked) => handlePreferenceChange('compactView', checked)}
+                  />
+                </div>
+
+                <div className="flex items-center justify-between">
+                  <div>
+                    <Label className="text-sm font-medium text-gray-700">Show Tips</Label>
+                    <p className="text-xs text-gray-500">Display helpful tips and guidance</p>
+                  </div>
+                  <Switch
+                    checked={settings.preferences.showTips}
+                    onCheckedChange={(checked) => handlePreferenceChange('showTips', checked)}
+                  />
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* Action Buttons */}
+          <div className="flex flex-col sm:flex-row gap-4">
+            <Button
+              onClick={saveSettings}
+              disabled={loading}
+              className="bg-emerald-600 hover:bg-emerald-700 flex-1"
+            >
+              <Save className="w-4 h-4 mr-2" />
+              {loading ? 'Saving...' : 'Save Settings'}
+            </Button>
+            <Button
+              variant="outline"
+              onClick={resetSettings}
+              className="border-amber-300 hover:bg-amber-50 flex-1"
+            >
+              <AlertTriangle className="w-4 h-4 mr-2" />
+              Reset to Default
             </Button>
           </div>
         </div>
