@@ -14,6 +14,7 @@ export interface User {
   companyId?: string;
   companyName?: string;
   avatar?: string;
+  phone?: string;
   permissions: string[];
 }
 
