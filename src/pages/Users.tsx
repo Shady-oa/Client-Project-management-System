@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -174,7 +173,7 @@ const Users = () => {
 
         {/* Team Members Grid */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {filteredMembers.map((member, index) => {
+          {teamMembers.map((member, index) => {
             // Calculate member's project assignments and progress
             const memberProjects = projects.filter(p => 
               p.assignedTo?.includes(member.userId || member.id)
@@ -233,7 +232,7 @@ const Users = () => {
                           <span className="text-gray-600">Overall Progress</span>
                           <span className="font-medium text-emerald-600">{avgProgress}%</span>
                         </div>
-                        <Progress value={avgProgress} />
+                        <Progress value={avgProgress} className="h-3" />
                         
                         <div className="mt-3 space-y-1">
                           <p className="text-xs font-medium text-gray-700">Assigned Projects:</p>
@@ -299,7 +298,7 @@ const Users = () => {
 
         {teamMembers.length === 0 && (
           <div className="text-center py-16">
-            <UsersIcon className="w-16 h-16 mx-auto mb-6 text-gray-300" />
+            <Users className="w-16 h-16 mx-auto mb-6 text-gray-300" />
             <h3 className="text-xl font-medium text-gray-900 mb-2">No team members yet</h3>
             <p className="text-gray-600 mb-6">Start building your team by adding your first member</p>
             {(isAdmin || isCompany) && (

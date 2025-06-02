@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from "react";
 import { DragDropContext, Droppable, Draggable } from 'react-beautiful-dnd';
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from "@/components/ui/card";
@@ -89,7 +88,7 @@ const Kanban = () => {
       await updateProject(selectedProject.id, {
         name: selectedProject.name,
         progress: selectedProject.progress,
-        assignedTo: selectedProject.assignedTo,
+        assignedTo: selectedProject.assignedMembers,
         priority: selectedProject.priority,
         dueDate: selectedProject.dueDate
       });
@@ -110,7 +109,7 @@ const Kanban = () => {
   const handleProjectClick = (project: Project) => {
     setSelectedProject({
       ...project,
-      assignedTo: project.assignedTo
+      assignedMembers: project.assignedTo
     });
     setIsEditDialogOpen(true);
   };
@@ -337,16 +336,16 @@ const Kanban = () => {
                       <div key={member.id} className="flex items-center gap-3">
                         <input
                           type="checkbox"
-                          checked={selectedProject.assignedTo?.includes(member.userId || member.id) || false}
+                          checked={selectedProject.assignedMembers?.includes(member.userId || member.id) || false}
                           onChange={(e) => {
                             const memberId = member.userId || member.id;
                             setSelectedProject(prev => {
                               if (!prev) return null;
-                              const currentMembers = prev.assignedTo || [];
+                              const currentMembers = prev.assignedMembers || [];
                               const newMembers = e.target.checked
                                 ? [...currentMembers, memberId]
                                 : currentMembers.filter(id => id !== memberId);
-                              return {...prev, assignedTo: newMembers};
+                              return {...prev, assignedMembers: newMembers};
                             });
                           }}
                           className="rounded border-gray-300"
