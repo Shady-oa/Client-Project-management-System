@@ -3,7 +3,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
-import { Briefcase, Users, Clock, CheckCircle, Plus, Settings, User, Bell, Edit, MoreVertical, Trash2, UserX } from "lucide-react";
+import { Briefcase, Users, Clock, CheckCircle, Plus, Settings, User, Bell, Edit, MoreVertical, Trash2, UserX, AlertTriangle } from "lucide-react";
 import { Link, useNavigate } from "react-router-dom";
 import { useUser } from "@/contexts/UserContext";
 import { useProjects } from "@/hooks/useProjects";
@@ -28,6 +28,8 @@ const CompanyDashboard = () => {
   } = useTeamMembers();
   
   const [notifications, setNotifications] = useState([]);
+  const [clients, setClients] = useState([]);
+  const [issues, setIssues] = useState([]);
   const [selectedMember, setSelectedMember] = useState(null);
   const [isTeamDialogOpen, setIsTeamDialogOpen] = useState(false);
   const [companyName, setCompanyName] = useState("");
@@ -47,6 +49,46 @@ const CompanyDashboard = () => {
       setNotifications(data || []);
     } catch (error) {
       console.error('Error fetching notifications:', error);
+    }
+  };
+
+  const fetchClients = async () => {
+    if (!user?.companyId) return;
+
+    try {
+      const { data, error } = await supabase
+        .from('profiles')
+        .select('id, full_name, email, created_at, status')
+        .eq('role', 'client')
+        .eq('company_id', user.companyId)
+        .order('created_at', { ascending: false });
+
+      if (error) throw error;
+      setClients(data || []);
+    } catch (error) {
+      console.error('Error fetching clients:', error);
+    }
+  };
+
+  const fetchIssues = async () => {
+    if (!user?.companyId) return;
+
+    try {
+      const { data, error } = await supabase
+        .from('issues')
+        .select(`
+          *,
+          projects!inner(id, name, company_id)
+        `)
+        .eq('projects.company_id', user.companyId)
+        .eq('status', 'Open')
+        .order('created_at', { ascending: false })
+        .limit(5);
+
+      if (error) throw error;
+      setIssues(data || []);
+    } catch (error) {
+      console.error('Error fetching issues:', error);
     }
   };
 
@@ -72,6 +114,8 @@ const CompanyDashboard = () => {
     if (user) {
       fetchNotifications();
       fetchCompanyName();
+      fetchClients();
+      fetchIssues();
     }
   }, [user]);
 
@@ -91,18 +135,18 @@ const CompanyDashboard = () => {
       color: "bg-blue-50 text-blue-600" 
     },
     { 
-      title: "On-Time Delivery", 
-      value: `${Math.round((projects.filter(p => p.status === 'Completed').length / Math.max(projects.length, 1)) * 100)}%`, 
-      icon: Clock, 
-      change: "Performance metric", 
-      color: "bg-amber-50 text-amber-600" 
+      title: "Active Clients", 
+      value: clients.filter(c => c.status === 'active').length.toString(), 
+      icon: User, 
+      change: `+${clients.filter(c => new Date(c.created_at) > new Date(Date.now() - 30*24*60*60*1000)).length} this month`, 
+      color: "bg-purple-50 text-purple-600" 
     },
     { 
-      title: "Completed Projects", 
-      value: projects.filter(p => p.status === 'Completed').length.toString(), 
-      icon: CheckCircle, 
-      change: `${projects.filter(p => p.status === 'Completed' && new Date(p.lastUpdate) > new Date(Date.now() - 90*24*60*60*1000)).length} this quarter`, 
-      color: "bg-green-50 text-green-600" 
+      title: "Open Issues", 
+      value: issues.length.toString(), 
+      icon: AlertTriangle, 
+      change: "Needs attention", 
+      color: "bg-red-50 text-red-600" 
     }
   ];
 
@@ -215,24 +259,26 @@ const CompanyDashboard = () => {
               )}
             </div>
             <div className="flex items-center gap-3">
-              <Button 
-                variant="outline" 
-                size="sm"
-                onClick={() => navigate("/profile")}
-                className="border-emerald-300 hover:bg-emerald-50"
-              >
-                <User className="w-4 h-4 mr-2" />
-                Profile
-              </Button>
-              <Button 
-                variant="outline" 
-                size="sm"
-                onClick={() => navigate("/settings")}
-                className="border-emerald-300 hover:bg-emerald-50"
-              >
-                <Settings className="w-4 h-4 mr-2" />
-                Settings
-              </Button>
+              <Link to="/profile">
+                <Button 
+                  variant="outline" 
+                  size="sm"
+                  className="border-emerald-300 hover:bg-emerald-50"
+                >
+                  <User className="w-4 h-4 mr-2" />
+                  Profile
+                </Button>
+              </Link>
+              <Link to="/settings">
+                <Button 
+                  variant="outline" 
+                  size="sm"
+                  className="border-emerald-300 hover:bg-emerald-50"
+                >
+                  <Settings className="w-4 h-4 mr-2" />
+                  Settings
+                </Button>
+              </Link>
               <Button 
                 className="bg-emerald-600 hover:bg-emerald-700 shadow-lg hover:shadow-xl transition-all duration-300 transform hover:-translate-y-0.5" 
                 onClick={handleNewProject}
@@ -266,7 +312,7 @@ const CompanyDashboard = () => {
 
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
           {/* Projects Overview */}
-          <div className="lg:col-span-2">
+          <div className="lg:col-span-2 space-y-8">
             <Card className="border-0 shadow-xl bg-white/80 backdrop-blur-sm">
               <CardHeader className="border-b border-emerald-100 bg-gradient-to-r from-emerald-50 to-amber-50">
                 <div className="flex justify-between items-center">
@@ -354,10 +400,48 @@ const CompanyDashboard = () => {
                 </div>
               </CardContent>
             </Card>
+
+            {/* Recent Issues */}
+            {issues.length > 0 && (
+              <Card className="border-0 shadow-xl bg-white/80 backdrop-blur-sm">
+                <CardHeader className="border-b border-emerald-100 bg-gradient-to-r from-emerald-50 to-amber-50">
+                  <div className="flex justify-between items-center">
+                    <div>
+                      <CardTitle className="text-xl text-emerald-700">Recent Issues</CardTitle>
+                      <CardDescription>Issues that need attention</CardDescription>
+                    </div>
+                    <Link to="/issues">
+                      <Button variant="outline" className="border-emerald-300 hover:bg-emerald-50">
+                        View All Issues
+                      </Button>
+                    </Link>
+                  </div>
+                </CardHeader>
+                <CardContent className="p-6">
+                  <div className="space-y-4">
+                    {issues.map((issue, index) => (
+                      <div key={issue.id} className="flex items-center gap-3 p-3 rounded-lg hover:bg-emerald-50 transition-all duration-200">
+                        <div className="p-2 bg-red-100 rounded-lg">
+                          <AlertTriangle className="w-4 h-4 text-red-600" />
+                        </div>
+                        <div className="flex-1">
+                          <p className="font-medium text-gray-900">{issue.title}</p>
+                          <p className="text-sm text-gray-600">{issue.projects?.name}</p>
+                        </div>
+                        <Badge className="bg-red-100 text-red-800">
+                          {issue.priority}
+                        </Badge>
+                      </div>
+                    ))}
+                  </div>
+                </CardContent>
+              </Card>
+            )}
           </div>
 
-          {/* Team Overview */}
-          <div>
+          {/* Sidebar */}
+          <div className="space-y-8">
+            {/* Team Overview */}
             <Card className="border-0 shadow-xl bg-white/80 backdrop-blur-sm">
               <CardHeader className="border-b border-emerald-100 bg-gradient-to-r from-emerald-50 to-amber-50">
                 <div className="flex justify-between items-center">
@@ -431,10 +515,21 @@ const CompanyDashboard = () => {
                         {memberProjects.length > 0 && (
                           <div className="ml-13">
                             <div className="flex items-center justify-between text-xs text-gray-500 mb-1">
-                              <span>Overall Progress</span>
-                              <span>{avgProgress}%</span>
+                              <span>Assigned Projects:</span>
+                              <span>{avgProgress}% avg progress</span>
                             </div>
-                            <Progress value={avgProgress} className="h-2" />
+                            <div className="space-y-1">
+                              {memberProjects.slice(0, 2).map((project) => (
+                                <div key={project.id} className="flex items-center justify-between text-xs">
+                                  <span className="text-gray-600 truncate">{project.name}</span>
+                                  <span className="text-emerald-600 font-medium">{project.progress}%</span>
+                                </div>
+                              ))}
+                              {memberProjects.length > 2 && (
+                                <p className="text-xs text-gray-500">+{memberProjects.length - 2} more</p>
+                              )}
+                            </div>
+                            <Progress value={avgProgress} className="h-2 mt-1" />
                           </div>
                         )}
                       </div>
@@ -457,6 +552,50 @@ const CompanyDashboard = () => {
                     View All Team Members
                   </Button>
                 </Link>
+              </CardContent>
+            </Card>
+
+            {/* Clients Overview */}
+            <Card className="border-0 shadow-xl bg-white/80 backdrop-blur-sm">
+              <CardHeader className="border-b border-emerald-100 bg-gradient-to-r from-emerald-50 to-amber-50">
+                <div className="flex justify-between items-center">
+                  <div>
+                    <CardTitle className="text-xl text-emerald-700">Recent Clients</CardTitle>
+                    <CardDescription>Clients who signed up</CardDescription>
+                  </div>
+                </div>
+              </CardHeader>
+              <CardContent className="p-6">
+                <div className="space-y-4">
+                  {clients.slice(0, 5).map((client, index) => (
+                    <div key={client.id} className="flex items-center gap-3 p-3 rounded-lg hover:bg-emerald-50 transition-all duration-200 animate-fade-in" style={{animationDelay: `${index * 100}ms`}}>
+                      <Avatar className="w-10 h-10">
+                        <AvatarFallback className="bg-gradient-to-br from-blue-400 to-purple-400 text-white font-semibold">
+                          {client.full_name?.split(' ').map(n => n[0]).join('') || 'C'}
+                        </AvatarFallback>
+                      </Avatar>
+                      <div className="flex-1">
+                        <p className="font-medium text-gray-900">{client.full_name}</p>
+                        <p className="text-sm text-gray-500">{client.email}</p>
+                      </div>
+                      <div className="text-right">
+                        <Badge variant="outline" className={client.status === 'active' ? 'border-green-300 text-green-700' : 'border-gray-300 text-gray-700'}>
+                          {client.status}
+                        </Badge>
+                        <p className="text-xs text-gray-500 mt-1">
+                          {new Date(client.created_at).toLocaleDateString()}
+                        </p>
+                      </div>
+                    </div>
+                  ))}
+                  
+                  {clients.length === 0 && (
+                    <div className="text-center py-8 text-gray-500">
+                      <User className="w-8 h-8 mx-auto mb-3 text-gray-300" />
+                      <p className="text-sm">No clients have signed up yet</p>
+                    </div>
+                  )}
+                </div>
               </CardContent>
             </Card>
           </div>

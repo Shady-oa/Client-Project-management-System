@@ -3,18 +3,20 @@ import { useState } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Globe, Star, Shield, Zap, Users, Briefcase, ChevronRight, CheckCircle } from "lucide-react";
+import { Globe, Star, Shield, Zap, Users, Briefcase, ChevronRight, CheckCircle, Moon, Sun } from "lucide-react";
 import { Link } from "react-router-dom";
 
 const Landing = () => {
   const [selectedLanguage, setSelectedLanguage] = useState("en");
+  const [isDarkMode, setIsDarkMode] = useState(false);
 
   const translations = {
     en: {
       hero: {
         title: "Transform Your Project Management",
         subtitle: "Streamline workflows, enhance collaboration, and deliver exceptional results with our intelligent project management platform.",
-        cta: "Get Started Today"
+        cta: "Get Started Today",
+        login: "Sign In"
       },
       features: {
         title: "Powerful Features for Modern Teams",
@@ -69,120 +71,62 @@ const Landing = () => {
         ]
       }
     },
-    es: {
+    sw: {
       hero: {
-        title: "Transforma Tu Gestión de Proyectos",
-        subtitle: "Optimiza flujos de trabajo, mejora la colaboración y entrega resultados excepcionales con nuestra plataforma inteligente.",
-        cta: "Comenzar Hoy"
+        title: "Badilisha Usimamizi wa Miradi Yako",
+        subtitle: "Rahisisha mchakato wa kazi, ongeza ushirikiano, na toa matokeo bora kwa kutumia jukwaa letu la kisasa la usimamizi wa miradi.",
+        cta: "Anza Leo",
+        login: "Ingia"
       },
       features: {
-        title: "Características Poderosas para Equipos Modernos",
+        title: "Vipengele Vyenye Nguvu kwa Timu za Kisasa",
         cards: [
           {
             icon: Briefcase,
-            title: "Seguimiento Inteligente",
-            description: "Insights impulsados por IA y monitoreo en tiempo real para mantener tus proyectos en curso.",
+            title: "Ufuatiliaji wa Akili wa Miradi",
+            description: "Maarifa yanayoongozwa na AI na ufuatiliaji wa wakati halisi ili kuweka miradi yako kwenye njia.",
             gradient: "from-blue-500 to-cyan-500"
           },
           {
             icon: Users,
-            title: "Colaboración en Equipo",
-            description: "Herramientas de comunicación fluida y acceso basado en roles para trabajo eficiente.",
+            title: "Ushirikiano wa Timu",
+            description: "Zana za mawasiliano za urahisi na ufikiaji kulingana na jukumu kwa kazi ya ufanisi.",
             gradient: "from-emerald-500 to-teal-500"
           },
           {
             icon: Shield,
-            title: "Seguridad Empresarial",
-            description: "Seguridad nivel bancario con encriptación avanzada y estándares de cumplimiento.",
+            title: "Usalama wa Kiwango cha Juu",
+            description: "Usalama wa kiwango cha benki na usimbaji wa hali ya juu na viwango vya kufuata.",
             gradient: "from-purple-500 to-pink-500"
           },
           {
             icon: Zap,
-            title: "Súper Rápido",
-            description: "Rendimiento optimizado con carga instantánea y sincronización en tiempo real.",
+            title: "Kasi ya Umeme",
+            description: "Utendaji uliobobozwa na upakiaji wa haraka na usawazishaji wa wakati halisi.",
             gradient: "from-orange-500 to-red-500"
           }
         ]
       },
       pricing: {
-        title: "Elige Tu Plan",
+        title: "Chagua Mpango Wako",
         plans: [
           {
-            name: "Inicial",
+            name: "Mwanzo",
             price: "$29",
-            period: "/mes",
-            features: ["Hasta 5 proyectos", "10 miembros del equipo", "Análisis básico", "Soporte por email"]
+            period: "/mwezi",
+            features: ["Hadi miradi 5", "Wanatimu 10", "Uchanganuzi wa msingi", "Msaada wa barua pepe"]
           },
           {
-            name: "Profesional",
+            name: "Kitaalamu",
             price: "$79",
-            period: "/mes",
-            features: ["Proyectos ilimitados", "50 miembros del equipo", "Análisis avanzado", "Soporte prioritario", "Integraciones personalizadas"]
+            period: "/mwezi",
+            features: ["Miradi isiyo na kikomo", "Wanatimu 50", "Uchanganuzi wa hali ya juu", "Msaada wa kipaumbele", "Miunganisho maalum"]
           },
           {
-            name: "Empresarial",
-            price: "Personalizado",
+            name: "Biashara",
+            price: "Maalum",
             period: "",
-            features: ["Todo ilimitado", "Soluciones personalizadas", "Soporte dedicado", "Opción local", "Garantía SLA"]
-          }
-        ]
-      }
-    },
-    fr: {
-      hero: {
-        title: "Transformez Votre Gestion de Projet",
-        subtitle: "Rationalisez les flux de travail, améliorez la collaboration et obtenez des résultats exceptionnels.",
-        cta: "Commencer Aujourd'hui"
-      },
-      features: {
-        title: "Fonctionnalités Puissantes pour Équipes Modernes",
-        cards: [
-          {
-            icon: Briefcase,
-            title: "Suivi Intelligent",
-            description: "Insights alimentés par IA et surveillance en temps réel pour garder vos projets sur la bonne voie.",
-            gradient: "from-blue-500 to-cyan-500"
-          },
-          {
-            icon: Users,
-            title: "Collaboration d'Équipe",
-            description: "Outils de communication fluides et accès basé sur les rôles pour un travail efficace.",
-            gradient: "from-emerald-500 to-teal-500"
-          },
-          {
-            icon: Shield,
-            title: "Sécurité d'Entreprise",
-            description: "Sécurité de niveau bancaire avec cryptage avancé et normes de conformité.",
-            gradient: "from-purple-500 to-pink-500"
-          },
-          {
-            icon: Zap,
-            title: "Ultra Rapide",
-            description: "Performance optimisée avec chargement instantané et synchronisation en temps réel.",
-            gradient: "from-orange-500 to-red-500"
-          }
-        ]
-      },
-      pricing: {
-        title: "Choisissez Votre Plan",
-        plans: [
-          {
-            name: "Débutant",
-            price: "$29",
-            period: "/mois",
-            features: ["Jusqu'à 5 projets", "10 membres d'équipe", "Analytiques de base", "Support email"]
-          },
-          {
-            name: "Professionnel",
-            price: "$79",
-            period: "/mois",
-            features: ["Projets illimités", "50 membres d'équipe", "Analytiques avancées", "Support prioritaire", "Intégrations personnalisées"]
-          },
-          {
-            name: "Entreprise",
-            price: "Personnalisé",
-            period: "",
-            features: ["Tout illimité", "Solutions personnalisées", "Support dédié", "Option sur site", "Garantie SLA"]
+            features: ["Kila kitu bila kikomo", "Suluhisho maalum", "Msaada wa kipekee", "Chaguo la ndani", "Uhakikisho wa SLA"]
           }
         ]
       }
@@ -193,14 +137,17 @@ const Landing = () => {
 
   const languages = [
     { code: "en", name: "English", flag: "🇺🇸" },
-    { code: "es", name: "Español", flag: "🇪🇸" },
-    { code: "fr", name: "Français", flag: "🇫🇷" }
+    { code: "sw", name: "Kiswahili", flag: "🇹🇿" }
   ];
 
+  const toggleTheme = () => {
+    setIsDarkMode(!isDarkMode);
+  };
+
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-900 via-purple-900 to-slate-900">
-      {/* Language Selector */}
-      <div className="absolute top-4 right-4 z-50">
+    <div className={`min-h-screen ${isDarkMode ? 'bg-gradient-to-br from-gray-900 via-purple-900 to-gray-900' : 'bg-gradient-to-br from-slate-900 via-purple-900 to-slate-900'}`}>
+      {/* Language and Theme Selector */}
+      <div className="absolute top-4 right-4 z-50 flex items-center gap-2">
         <div className="flex gap-2">
           {languages.map((lang) => (
             <Button
@@ -215,6 +162,14 @@ const Landing = () => {
             </Button>
           ))}
         </div>
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={toggleTheme}
+          className="bg-white/10 border-white/20 hover:bg-white/20 text-white"
+        >
+          {isDarkMode ? <Sun className="w-4 h-4" /> : <Moon className="w-4 h-4" />}
+        </Button>
       </div>
 
       {/* Hero Section */}
@@ -243,7 +198,7 @@ const Landing = () => {
             </Link>
             <Link to="/login">
               <Button variant="outline" size="lg" className="border-white/30 text-white hover:bg-white/10 px-8 py-4 text-lg font-semibold rounded-full">
-                Sign In
+                {t.hero.login}
               </Button>
             </Link>
           </div>

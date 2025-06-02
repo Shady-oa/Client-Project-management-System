@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -9,7 +9,9 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { useUser } from "@/contexts/UserContext";
 import { useProject } from "@/contexts/ProjectContext";
+import { supabase } from "@/integrations/supabase/client";
 import { Plus, Search, Filter, Grid, List, Calendar, Users, DollarSign, Settings, Loader2 } from "lucide-react";
+import { toast } from "sonner";
 
 const Projects = () => {
   const { user, isAdmin, isCompany, isClient } = useUser();
@@ -19,14 +21,39 @@ const Projects = () => {
   const [priorityFilter, setPriorityFilter] = useState("all");
   const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid');
   const [isAddProjectOpen, setIsAddProjectOpen] = useState(false);
+  const [clients, setClients] = useState([]);
   const [newProject, setNewProject] = useState({
     name: "",
     description: "",
     client: "",
+    clientId: "",
     dueDate: "",
     priority: "Medium" as "Low" | "Medium" | "High" | "Critical",
     budget: 0
   });
+
+  // Fetch clients for company users
+  useEffect(() => {
+    if (isCompany && user?.companyId) {
+      fetchClients();
+    }
+  }, [isCompany, user?.companyId]);
+
+  const fetchClients = async () => {
+    try {
+      const { data, error } = await supabase
+        .from('profiles')
+        .select('id, full_name, email')
+        .eq('role', 'client')
+        .eq('company_id', user?.companyId);
+
+      if (error) throw error;
+      setClients(data || []);
+    } catch (error) {
+      console.error('Error fetching clients:', error);
+      toast.error('Failed to fetch clients');
+    }
+  };
 
   const handleAddProject = async () => {
     if (newProject.name && newProject.description && isCompany && user?.companyId) {
@@ -47,13 +74,14 @@ const Projects = () => {
         createdBy: user.id,
         assignedTo: [],
         companyId: user.companyId,
-        clientId: undefined
+        clientId: newProject.clientId || undefined
       });
       
       setNewProject({
         name: "",
         description: "",
         client: "",
+        clientId: "",
         dueDate: "",
         priority: "Medium",
         budget: 0
@@ -64,7 +92,12 @@ const Projects = () => {
 
   // Filter projects based on user role
   const filteredProjects = projects.filter(project => {
-    // Role-based filtering is now handled in ProjectContext getProjectsByRole
+    // For clients, only show their assigned projects
+    if (isClient && user) {
+      const isAssignedToClient = project.clientId === user.id;
+      if (!isAssignedToClient) return false;
+    }
+
     const matchesSearch = project.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
                          project.client.toLowerCase().includes(searchTerm.toLowerCase());
     const matchesStatus = statusFilter === "all" || project.status.toLowerCase() === statusFilter;
@@ -172,15 +205,44 @@ const Projects = () => {
                         placeholder="Brief project description..."
                       />
                     </div>
-                    <div className="grid gap-2">
-                      <Label htmlFor="client">Client</Label>
-                      <Input
-                        id="client"
-                        value={newProject.client}
-                        onChange={(e) => setNewProject({...newProject, client: e.target.value})}
-                        placeholder="Client Name"
-                      />
-                    </div>
+                    {isCompany && (
+                      <div className="grid gap-2">
+                        <Label htmlFor="client">Select Client</Label>
+                        <Select 
+                          value={newProject.clientId} 
+                          onValueChange={(value) => {
+                            const selectedClient = clients.find(c => c.id === value);
+                            setNewProject({
+                              ...newProject, 
+                              clientId: value,
+                              client: selectedClient ? selectedClient.full_name : ''
+                            });
+                          }}
+                        >
+                          <SelectTrigger>
+                            <SelectValue placeholder="Choose a client" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {clients.map((client) => (
+                              <SelectItem key={client.id} value={client.id}>
+                                {client.full_name} ({client.email})
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      </div>
+                    )}
+                    {!isCompany && (
+                      <div className="grid gap-2">
+                        <Label htmlFor="client">Client</Label>
+                        <Input
+                          id="client"
+                          value={newProject.client}
+                          onChange={(e) => setNewProject({...newProject, client: e.target.value})}
+                          placeholder="Client Name"
+                        />
+                      </div>
+                    )}
                     <div className="grid grid-cols-2 gap-4">
                       <div className="grid gap-2">
                         <Label htmlFor="dueDate">Due Date</Label>
