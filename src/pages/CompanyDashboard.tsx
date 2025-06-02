@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -13,6 +12,7 @@ import { TeamMemberDialog } from "@/components/TeamMemberDialog";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
+import { Progress } from "@/components/ui/progress";
 
 const CompanyDashboard = () => {
   const navigate = useNavigate();
@@ -329,11 +329,8 @@ const CompanyDashboard = () => {
                         </div>
                         <div className="text-right ml-6">
                           <div className="text-sm text-gray-600 mb-2">{project.progress}% Complete</div>
-                          <div className="w-32 bg-gray-200 rounded-full h-2">
-                            <div 
-                              className="bg-gradient-to-r from-emerald-500 to-amber-500 h-2 rounded-full transition-all duration-500"
-                              style={{ width: `${project.progress}%` }}
-                            ></div>
+                          <div className="w-32">
+                            <Progress value={project.progress} className="h-2" />
                           </div>
                         </div>
                       </div>
@@ -380,48 +377,69 @@ const CompanyDashboard = () => {
               </CardHeader>
               <CardContent className="p-6">
                 <div className="space-y-4">
-                  {teamMembers.filter(m => m.status === 'Active').slice(0, 5).map((member, index) => (
-                    <div key={member.id} className="flex items-center gap-3 p-3 rounded-lg hover:bg-emerald-50 transition-all duration-200 animate-fade-in" style={{animationDelay: `${index * 100}ms`}}>
-                      <Avatar className="w-10 h-10">
-                        <AvatarFallback className="bg-gradient-to-br from-emerald-400 to-amber-400 text-white font-semibold">
-                          {member.avatar}
-                        </AvatarFallback>
-                      </Avatar>
-                      <div className="flex-1">
-                        <p className="font-medium text-gray-900">{member.name}</p>
-                        <p className="text-sm text-gray-500">{member.role}</p>
+                  {teamMembers.filter(m => m.status === 'Active').slice(0, 5).map((member, index) => {
+                    // Calculate member's project progress
+                    const memberProjects = projects.filter(p => 
+                      p.assignedTo?.includes(member.userId || member.id)
+                    );
+                    const avgProgress = memberProjects.length > 0 
+                      ? Math.round(memberProjects.reduce((sum, p) => sum + p.progress, 0) / memberProjects.length)
+                      : 0;
+
+                    return (
+                      <div key={member.id} className="p-3 rounded-lg hover:bg-emerald-50 transition-all duration-200 animate-fade-in" style={{animationDelay: `${index * 100}ms`}}>
+                        <div className="flex items-center gap-3 mb-2">
+                          <Avatar className="w-10 h-10">
+                            <AvatarFallback className="bg-gradient-to-br from-emerald-400 to-amber-400 text-white font-semibold">
+                              {member.avatar}
+                            </AvatarFallback>
+                          </Avatar>
+                          <div className="flex-1">
+                            <p className="font-medium text-gray-900">{member.name}</p>
+                            <p className="text-sm text-gray-500">{member.role}</p>
+                          </div>
+                          <div className="flex items-center gap-2">
+                            <Badge variant="outline" className="border-emerald-300 text-emerald-700">
+                              {memberProjects.length} projects
+                            </Badge>
+                            <DropdownMenu>
+                              <DropdownMenuTrigger asChild>
+                                <Button variant="ghost" size="sm" className="p-1 h-auto">
+                                  <MoreVertical className="w-4 h-4" />
+                                </Button>
+                              </DropdownMenuTrigger>
+                              <DropdownMenuContent align="end">
+                                <DropdownMenuItem onClick={() => handleEditMember(member)}>
+                                  <Edit className="w-4 h-4 mr-2" />
+                                  Edit
+                                </DropdownMenuItem>
+                                <DropdownMenuItem onClick={() => handleDeactivateMember(member.id)}>
+                                  <UserX className="w-4 h-4 mr-2" />
+                                  Deactivate
+                                </DropdownMenuItem>
+                                <DropdownMenuItem 
+                                  onClick={() => handleDeleteMember(member.id)}
+                                  className="text-red-600"
+                                >
+                                  <Trash2 className="w-4 h-4 mr-2" />
+                                  Delete
+                                </DropdownMenuItem>
+                              </DropdownMenuContent>
+                            </DropdownMenu>
+                          </div>
+                        </div>
+                        {memberProjects.length > 0 && (
+                          <div className="ml-13">
+                            <div className="flex items-center justify-between text-xs text-gray-500 mb-1">
+                              <span>Overall Progress</span>
+                              <span>{avgProgress}%</span>
+                            </div>
+                            <Progress value={avgProgress} className="h-2" />
+                          </div>
+                        )}
                       </div>
-                      <div className="flex items-center gap-2">
-                        <Badge variant="outline" className="border-emerald-300 text-emerald-700">
-                          {member.projects.length} projects
-                        </Badge>
-                        <DropdownMenu>
-                          <DropdownMenuTrigger asChild>
-                            <Button variant="ghost" size="sm" className="p-1 h-auto">
-                              <MoreVertical className="w-4 h-4" />
-                            </Button>
-                          </DropdownMenuTrigger>
-                          <DropdownMenuContent align="end">
-                            <DropdownMenuItem onClick={() => handleEditMember(member)}>
-                              <Edit className="w-4 h-4 mr-2" />
-                              Edit
-                            </DropdownMenuItem>
-                            <DropdownMenuItem onClick={() => handleDeactivateMember(member.id)}>
-                              <UserX className="w-4 h-4 mr-2" />
-                              Deactivate
-                            </DropdownMenuItem>
-                            <DropdownMenuItem 
-                              onClick={() => handleDeleteMember(member.id)}
-                              className="text-red-600"
-                            >
-                              <Trash2 className="w-4 h-4 mr-2" />
-                              Delete
-                            </DropdownMenuItem>
-                          </DropdownMenuContent>
-                        </DropdownMenu>
-                      </div>
-                    </div>
-                  ))}
+                    );
+                  })}
                   
                   {teamMembers.filter(m => m.status === 'Active').length === 0 && (
                     <div className="text-center py-8 text-gray-500">

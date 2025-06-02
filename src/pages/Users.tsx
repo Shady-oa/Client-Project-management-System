@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -19,7 +18,9 @@ import {
   Phone,
   Briefcase,
   Calendar,
-  TrendingUp
+  TrendingUp,
+  Building2,
+  DollarSign
 } from "lucide-react";
 import { useUser } from "@/contexts/UserContext";
 import { useTeamMembers } from "@/hooks/useTeamMembers";
@@ -134,6 +135,7 @@ const Users = () => {
   return (
     <div className="min-h-screen bg-gradient-to-br from-emerald-50 to-amber-50">
       <div className="max-w-7xl mx-auto p-6">
+        {/* Header */}
         <div className="mb-8">
           <div className="flex justify-between items-center">
             <div>
@@ -142,13 +144,15 @@ const Users = () => {
               </h1>
               <p className="text-gray-600 mt-2">Manage your team and track their progress</p>
             </div>
-            <Button
-              onClick={handleAddMember}
-              className="bg-emerald-600 hover:bg-emerald-700"
-            >
-              <Plus className="w-4 h-4 mr-2" />
-              Add Member
-            </Button>
+            {(isAdmin || isCompany) && (
+              <Button 
+                onClick={handleAddMember}
+                className="bg-emerald-600 hover:bg-emerald-700 shadow-lg hover:shadow-xl transition-all duration-300 transform hover:-translate-y-0.5"
+              >
+                <Plus className="w-4 h-4 mr-2" />
+                Add Team Member
+              </Button>
+            )}
           </div>
         </div>
 
@@ -169,46 +173,111 @@ const Users = () => {
 
         {/* Team Members Grid */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {filteredMembers.map((member) => {
-            const memberProjects = getProjectsForMember(member.id);
-            const averageProgress = getAverageProgress(memberProjects);
-            
+          {teamMembers.map((member, index) => {
+            // Calculate member's project assignments and progress
+            const memberProjects = projects.filter(p => 
+              p.assignedTo?.includes(member.userId || member.id)
+            );
+            const avgProgress = memberProjects.length > 0 
+              ? Math.round(memberProjects.reduce((sum, p) => sum + p.progress, 0) / memberProjects.length)
+              : 0;
+
             return (
-              <Card
-                key={member.id}
-                className="border-0 shadow-lg hover:shadow-xl transition-all duration-300 transform hover:-translate-y-1 bg-white/80 backdrop-blur-sm"
+              <Card 
+                key={member.id} 
+                className="border-0 shadow-lg hover:shadow-xl transition-all duration-300 transform hover:-translate-y-1 animate-fade-in bg-white/80 backdrop-blur-sm"
+                style={{animationDelay: `${index * 100}ms`}}
               >
-                <CardHeader className="pb-4">
-                  <div className="flex items-start justify-between">
-                    <div className="flex items-center gap-3">
-                      <Avatar className="w-12 h-12">
-                        <AvatarFallback className="bg-gradient-to-br from-emerald-400 to-amber-400 text-white font-semibold">
-                          {member.avatar}
-                        </AvatarFallback>
-                      </Avatar>
-                      <div>
-                        <CardTitle className="text-lg">{member.name}</CardTitle>
-                        <CardDescription className="text-sm">{member.role}</CardDescription>
-                      </div>
+                <CardHeader className="text-center border-b border-emerald-100 bg-gradient-to-r from-emerald-50 to-amber-50">
+                  <Avatar className="w-20 h-20 mx-auto mb-4">
+                    <AvatarFallback className="bg-gradient-to-br from-emerald-400 to-amber-400 text-white text-xl font-bold">
+                      {member.avatar}
+                    </AvatarFallback>
+                  </Avatar>
+                  <CardTitle className="text-xl text-emerald-700">{member.name}</CardTitle>
+                  <CardDescription className="text-gray-600">{member.email}</CardDescription>
+                  <div className="flex justify-center gap-2 mt-2">
+                    <Badge className={member.status === 'Active' ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'}>
+                      {member.status}
+                    </Badge>
+                    <Badge variant="outline" className="border-emerald-300 text-emerald-700">
+                      {member.role}
+                    </Badge>
+                  </div>
+                </CardHeader>
+                <CardContent className="p-6">
+                  <div className="space-y-4">
+                    <div className="flex items-center gap-3 text-sm text-gray-600">
+                      <Building2 className="w-4 h-4" />
+                      <span>{member.department}</span>
                     </div>
-                    <div className="flex items-center gap-2">
-                      <Badge className={getStatusColor(member.status)}>
-                        {member.status}
-                      </Badge>
+                    {member.phone && (
+                      <div className="flex items-center gap-3 text-sm text-gray-600">
+                        <Phone className="w-4 h-4" />
+                        <span>{member.phone}</span>
+                      </div>
+                    )}
+                    <div className="flex items-center gap-3 text-sm text-gray-600">
+                      <Calendar className="w-4 h-4" />
+                      <span>Hired {member.hireDate}</span>
+                    </div>
+                    <div className="flex items-center gap-3 text-sm text-gray-600">
+                      <Briefcase className="w-4 h-4" />
+                      <span>{memberProjects.length} Active Projects</span>
+                    </div>
+
+                    {memberProjects.length > 0 && (
+                      <div className="space-y-2">
+                        <div className="flex items-center justify-between text-sm">
+                          <span className="text-gray-600">Overall Progress</span>
+                          <span className="font-medium text-emerald-600">{avgProgress}%</span>
+                        </div>
+                        <Progress value={avgProgress} className="h-3" />
+                        
+                        <div className="mt-3 space-y-1">
+                          <p className="text-xs font-medium text-gray-700">Assigned Projects:</p>
+                          {memberProjects.slice(0, 3).map((project) => (
+                            <div key={project.id} className="flex items-center justify-between text-xs">
+                              <span className="text-gray-600 truncate">{project.name}</span>
+                              <span className="text-emerald-600 font-medium">{project.progress}%</span>
+                            </div>
+                          ))}
+                          {memberProjects.length > 3 && (
+                            <p className="text-xs text-gray-500">+{memberProjects.length - 3} more projects</p>
+                          )}
+                        </div>
+                      </div>
+                    )}
+
+                    {isAdmin && (
+                      <div className="flex items-center gap-3 text-sm text-gray-600">
+                        <DollarSign className="w-4 h-4" />
+                        <span>KES {member.salary?.toLocaleString() || 'N/A'}</span>
+                      </div>
+                    )}
+                  </div>
+
+                  {(isAdmin || isCompany) && (
+                    <div className="flex gap-2 mt-6 pt-4 border-t border-emerald-100">
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => handleEditMember(member)}
+                        className="flex-1 border-emerald-300 hover:bg-emerald-50"
+                      >
+                        <Edit className="w-4 h-4 mr-2" />
+                        Edit
+                      </Button>
                       <DropdownMenu>
                         <DropdownMenuTrigger asChild>
-                          <Button variant="ghost" size="sm" className="p-1 h-auto">
+                          <Button variant="outline" size="sm" className="border-emerald-300 hover:bg-emerald-50">
                             <MoreVertical className="w-4 h-4" />
                           </Button>
                         </DropdownMenuTrigger>
                         <DropdownMenuContent align="end">
-                          <DropdownMenuItem onClick={() => handleEditMember(member)}>
-                            <Edit className="w-4 h-4 mr-2" />
-                            Edit
-                          </DropdownMenuItem>
                           <DropdownMenuItem onClick={() => handleDeactivateMember(member.id)}>
                             <UserX className="w-4 h-4 mr-2" />
-                            Deactivate
+                            {member.status === 'Active' ? 'Deactivate' : 'Activate'}
                           </DropdownMenuItem>
                           <DropdownMenuItem 
                             onClick={() => handleDeleteMember(member.id)}
@@ -220,104 +289,25 @@ const Users = () => {
                         </DropdownMenuContent>
                       </DropdownMenu>
                     </div>
-                  </div>
-                </CardHeader>
-                
-                <CardContent className="space-y-4">
-                  {/* Contact Information */}
-                  <div className="space-y-2">
-                    <div className="flex items-center gap-2 text-sm text-gray-600">
-                      <Mail className="w-3 h-3" />
-                      <span className="truncate">{member.email}</span>
-                    </div>
-                    {member.phone && (
-                      <div className="flex items-center gap-2 text-sm text-gray-600">
-                        <Phone className="w-3 h-3" />
-                        <span>{member.phone}</span>
-                      </div>
-                    )}
-                    <div className="flex items-center gap-2 text-sm text-gray-600">
-                      <Calendar className="w-3 h-3" />
-                      <span>Joined {new Date(member.hireDate).toLocaleDateString()}</span>
-                    </div>
-                  </div>
-
-                  {/* Project Statistics */}
-                  <div className="bg-emerald-50 rounded-lg p-3 space-y-3">
-                    <div className="flex items-center justify-between">
-                      <div className="flex items-center gap-2">
-                        <Briefcase className="w-4 h-4 text-emerald-600" />
-                        <span className="text-sm font-medium text-emerald-700">Projects</span>
-                      </div>
-                      <Badge variant="outline" className="border-emerald-300 text-emerald-700">
-                        {memberProjects.length}
-                      </Badge>
-                    </div>
-                    
-                    {memberProjects.length > 0 && (
-                      <>
-                        <div className="space-y-1">
-                          <div className="flex items-center justify-between text-xs">
-                            <span className="text-emerald-600">Average Progress</span>
-                            <span className="font-medium text-emerald-700">{averageProgress}%</span>
-                          </div>
-                          <Progress value={averageProgress} className="h-2" />
-                        </div>
-                        
-                        <div className="space-y-1">
-                          <p className="text-xs text-emerald-600 mb-1">Current Projects:</p>
-                          {memberProjects.slice(0, 3).map((project) => (
-                            <div key={project.id} className="flex items-center justify-between text-xs">
-                              <span className="truncate text-gray-700">{project.name}</span>
-                              <span className="text-emerald-600 ml-2">{project.progress}%</span>
-                            </div>
-                          ))}
-                          {memberProjects.length > 3 && (
-                            <p className="text-xs text-gray-500">
-                              +{memberProjects.length - 3} more
-                            </p>
-                          )}
-                        </div>
-                      </>
-                    )}
-                    
-                    {memberProjects.length === 0 && (
-                      <p className="text-xs text-gray-500 text-center py-2">
-                        No projects assigned
-                      </p>
-                    )}
-                  </div>
-
-                  {/* Performance Indicator */}
-                  <div className="flex items-center gap-2 text-sm">
-                    <TrendingUp className="w-4 h-4 text-amber-600" />
-                    <span className="text-gray-600">
-                      {member.department || 'Engineering'} • 
-                      {member.salary ? ` $${member.salary.toLocaleString()}` : ' Salary not set'}
-                    </span>
-                  </div>
+                  )}
                 </CardContent>
               </Card>
             );
           })}
         </div>
 
-        {filteredMembers.length === 0 && (
-          <div className="text-center py-12">
-            <UsersIcon className="w-12 h-12 mx-auto mb-4 text-gray-300" />
-            <h3 className="text-lg font-medium mb-2">
-              {searchTerm ? 'No matching team members' : 'No team members found'}
-            </h3>
-            <p className="text-gray-600 mb-4">
-              {searchTerm 
-                ? 'Try adjusting your search criteria'
-                : 'Add your first team member to get started'
-              }
-            </p>
-            {!searchTerm && (
-              <Button onClick={handleAddMember} className="bg-emerald-600 hover:bg-emerald-700">
+        {teamMembers.length === 0 && (
+          <div className="text-center py-16">
+            <Users className="w-16 h-16 mx-auto mb-6 text-gray-300" />
+            <h3 className="text-xl font-medium text-gray-900 mb-2">No team members yet</h3>
+            <p className="text-gray-600 mb-6">Start building your team by adding your first member</p>
+            {(isAdmin || isCompany) && (
+              <Button 
+                onClick={handleAddMember}
+                className="bg-emerald-600 hover:bg-emerald-700"
+              >
                 <Plus className="w-4 h-4 mr-2" />
-                Add Team Member
+                Add First Team Member
               </Button>
             )}
           </div>

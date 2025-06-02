@@ -117,6 +117,14 @@ export const useProjects = () => {
 
       if (error) throw error;
 
+      // Update local state immediately for better UX
+      setProjects(prev => prev.map(project => 
+        project.id === projectId 
+          ? { ...project, ...updates }
+          : project
+      ));
+
+      // Also fetch fresh data to ensure consistency
       await fetchProjects();
       toast.success('Project updated successfully');
     } catch (error) {
